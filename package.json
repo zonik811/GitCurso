@@ -11,6 +11,7 @@
     "test:links": "node scripts/check-links.mjs",
     "test:content": "node scripts/check-content.mjs",
     "test:responsive": "node scripts/screenshots.mjs",
+    "icons": "node scripts/generate-icons.mjs",
     "test": "npm run build && npm run test:content && npm run test:links",
     "astro": "astro"
   },

@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Sidebar from '../components/Sidebar.astro';
+import { base } from '../lib/base';
 
 interface Props {
   title: string;
@@ -28,13 +29,23 @@ const fullTitle = title === 'Curso de Git' ? title : `${title} · Curso de Git`;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%91%82%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${base}icons/icon-192.png`} type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href={`${base}icons/apple-touch-icon.png`} />
+    <link rel="manifest" href={`${base}manifest.webmanifest`} />
+    <meta name="theme-color" id="themeColor" content="#0d1117" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Curso de Git" />
     <title>{fullTitle}</title>
     <script is:inline>
       (function () {
         try {
           var t = localStorage.getItem('curso-git:theme');
           if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+          var c = document.getElementById('themeColor');
+          if (c) c.setAttribute('content', document.documentElement.dataset.theme === 'light' ? '#ffffff' : '#0d1117');
         } catch (e) {}
       })();
     </script>
@@ -48,7 +59,8 @@ const fullTitle = title === 'Curso de Git' ? title : `${title} · Curso de Git`;
           <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
           <span class="crumb">{crumb ?? 'Curso de Git'}</span>
           <span class="spacer"></span>
-          <a class="gh-link" href="/">Inicio</a>
+          <a class="gh-link" href={base}>Inicio</a>
+          <button class="install-btn" id="installBtn" type="button" hidden>⬇️ Instalar app</button>
           <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambiar tema" title="Cambiar tema claro/oscuro">🌙</button>
         </header>
         <main class={`content${wide ? ' content-wide' : ''}`}>
@@ -61,11 +73,17 @@ const fullTitle = title === 'Curso de Git' ? title : `${title} · Curso de Git`;
     </div>
 
     <script>
+      /* BASE_URL puede venir sin barra final; la normalizamos para el cliente */
+      const BASE = import.meta.env.BASE_URL.endsWith('/')
+        ? import.meta.env.BASE_URL
+        : import.meta.env.BASE_URL + '/';
+
       /* ---------- Tema claro / oscuro ---------- */
       const root = document.documentElement;
       const themeBtn = document.getElementById('themeToggle');
       const applyTheme = (theme: string) => {
         root.dataset.theme = theme;
+        document.getElementById('themeColor')?.setAttribute('content', theme === 'light' ? '#ffffff' : '#0d1117');
         try {
           localStorage.setItem('curso-git:theme', theme);
         } catch {}
@@ -175,8 +193,8 @@ const fullTitle = title === 'Curso de Git' ? title : `${title} · Curso de Git`;
           if (tag === 'INPUT' || tag === 'TEXTAREA') return;
           const prev = lessonNav.dataset.prev;
           const next = lessonNav.dataset.next;
-          if (e.key === 'ArrowRight' && next) location.href = `/lecciones/${next}/`;
-          if (e.key === 'ArrowLeft' && prev) location.href = `/lecciones/${prev}/`;
+          if (e.key === 'ArrowRight' && next) location.href = `${BASE}lecciones/${next}/`;
+          if (e.key === 'ArrowLeft' && prev) location.href = `${BASE}lecciones/${prev}/`;
         });
       }
 
@@ -235,6 +253,31 @@ const fullTitle = title === 'Curso de Git' ? title : `${title} · Curso de Git`;
           }, 1600);
         });
       });
+
+      /* ---------- PWA: service worker e instalación ---------- */
+      if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register(BASE + 'sw.js', { scope: BASE })
+            .catch(() => {});
+        });
+      }
+
+      const installBtn = document.getElementById('installBtn');
+      let deferredPrompt: any = null;
+      window.addEventListener('beforeinstallprompt', (e: Event) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn?.removeAttribute('hidden');
+      });
+      installBtn?.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.setAttribute('hidden', '');
+      });
+      window.addEventListener('appinstalled', () => installBtn?.setAttribute('hidden', ''));
     </script>
   </body>
 </html>

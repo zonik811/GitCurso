@@ -1,5 +1,6 @@
 ---
 import { curriculum, flatLessons } from '../data/curriculum';
+import { base } from '../lib/base';
 
 interface Props {
   current?: string;
@@ -16,7 +17,7 @@ const isActiveModule = (moduleId: string) =>
 ---
 
 <aside class="sidebar" id="sidebar">
-  <a href="/" class="brand">
+    <a href={base} class="brand">
     <span class="logo">⑂</span>
     <span>
       Curso de Git
@@ -50,7 +51,7 @@ const isActiveModule = (moduleId: string) =>
             {module.lessons.map((lesson) => (
               <li>
                 <a
-                  href={`/lecciones/${lesson.slug}/`}
+                  href={`${base}lecciones/${lesson.slug}/`}
                   class={lesson.slug === current ? 'active' : ''}
                   data-search={`${lesson.title} ${lesson.description} ${module.title}`}
                   data-lesson-link={lesson.slug}
@@ -69,9 +70,9 @@ const isActiveModule = (moduleId: string) =>
 
   <div class="nav-resources">
     <p class="nav-resources-title">Recursos</p>
-    <a href="/chuleta/">📋 Chuleta de comandos</a>
-    <a href="/glosario/">📖 Glosario</a>
-    <a href="/lecciones/">🗂️ Temario completo</a>
+    <a href={`${base}chuleta/`}>📋 Chuleta de comandos</a>
+    <a href={`${base}glosario/`}>📖 Glosario</a>
+    <a href={`${base}lecciones/`}>🗂️ Temario completo</a>
   </div>
 </aside>
 

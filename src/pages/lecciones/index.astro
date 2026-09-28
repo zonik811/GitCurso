@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { curriculum, totalLessons, totalMinutes } from '../../data/curriculum';
+import { base } from '../../lib/base';
 
 const numberFor = (slug: string) => {
   let n = 0;
@@ -32,7 +33,7 @@ const numberFor = (slug: string) => {
           <ul>
             {module.lessons.map((lesson) => (
               <li>
-                <a href={`/lecciones/${lesson.slug}/`}>
+                <a href={`${base}lecciones/${lesson.slug}/`}>
                   <strong>{numberFor(lesson.slug)}. {lesson.title}</strong>
                 </a>{' '}
                 — {lesson.description}{' '}

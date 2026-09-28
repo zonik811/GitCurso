@@ -5,6 +5,13 @@ import { dirname, join, relative } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 
+/* El sitio puede desplegarse en un subdirectorio (GitHub Pages), asi que los
+   enlaces internos llevan el prefijo `base`. Lo leemos de astro.config.mjs
+   para no duplicarlo y lo quitamos antes de resolver contra dist/. */
+const configRaw = readFileSync(join(root, 'astro.config.mjs'), 'utf8');
+const baseMatch = configRaw.match(/\bbase:\s*'([^']*)'/);
+const base = (baseMatch?.[1] ?? '/').replace(/\/+$/, '');
+
 if (!existsSync(dist)) {
   console.error('\u2717 No existe la carpeta dist/. Ejecuta `npm run build` primero.');
   process.exit(1);
@@ -31,6 +38,11 @@ for (const file of files) {
     if (!url.startsWith('/') || url.startsWith('//')) continue;
     url = url.split('#')[0].split('?')[0];
     if (!url) continue;
+
+    /* quita el prefijo base del despliegue */
+    if (base && (url === base || url.startsWith(base + '/'))) {
+      url = url.slice(base.length) || '/';
+    }
 
     let target = join(dist, decodeURIComponent(url));
     if (url.endsWith('/')) {

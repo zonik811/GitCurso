@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Curso de Git">
+  <rect width="64" height="64" rx="14" fill="#0d1117"/>
+  <g fill="none" stroke="#58a6ff" stroke-width="5" stroke-linecap="round">
+    <path d="M22 17 V 47"/>
+    <path d="M22 31 C 22 41 33 41 42 41"/>
+  </g>
+  <g fill="#58a6ff">
+    <circle cx="22" cy="14" r="6"/>
+    <circle cx="22" cy="50" r="6"/>
+    <circle cx="45" cy="41" r="6"/>
+  </g>
+</svg>

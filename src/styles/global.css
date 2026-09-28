@@ -308,6 +308,20 @@ img {
   text-decoration: none;
   border-color: var(--text-faint);
 }
+.topbar .install-btn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.topbar .install-btn:hover {
+  background: var(--accent-emphasis);
+  border-color: var(--accent-emphasis);
+}
 .menu-toggle {
   display: none;
   background: var(--bg-muted);

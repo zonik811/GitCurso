@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { base } from '../lib/base';
+---
+
+<BaseLayout title="Sin conexión">
+  <article class="prose">
+    <h1>Sin conexión</h1>
+    <p>
+      Ahora mismo no hay red, pero el curso está guardado en tu dispositivo. Las páginas que ya
+      visitaste funcionan sin internet, así que puedes seguir estudiando.
+    </p>
+    <p>
+      Cuando recuperes la conexión, recarga para ponerte al día. Mientras tanto, prueba a volver a
+      una lección:
+    </p>
+    <p>
+      <a href={base}>Ir al inicio</a> · <a href={`${base}lecciones/`}>Ver todas las lecciones</a>
+    </p>
+  </article>
+</BaseLayout>

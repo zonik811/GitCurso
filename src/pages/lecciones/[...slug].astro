@@ -3,6 +3,7 @@ import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { flatLessons, getLessonNeighbors } from '../../data/curriculum';
 import { lessonExtras } from '../../data/lessonExtras';
+import { base } from '../../lib/base';
 
 export async function getStaticPaths() {
   const lecciones = await getCollection('lecciones');
@@ -95,7 +96,7 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
       <nav class="lesson-nav">
         {
           prev ? (
-            <a href={`/lecciones/${prev.slug}/`}>
+            <a href={`${base}lecciones/${prev.slug}/`}>
               <span class="dir">← Anterior</span>
               <span class="ttl">{prev.title}</span>
             </a>
@@ -105,12 +106,12 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
         }
         {
           next ? (
-            <a class="next" href={`/lecciones/${next.slug}/`}>
+            <a class="next" href={`${base}lecciones/${next.slug}/`}>
               <span class="dir">Siguiente →</span>
               <span class="ttl">{next.title}</span>
             </a>
           ) : (
-            <a class="next" href="/lecciones/">
+            <a class="next" href={`${base}lecciones/`}>
               <span class="dir">Has terminado 🎉</span>
               <span class="ttl">Volver al temario</span>
             </a>
