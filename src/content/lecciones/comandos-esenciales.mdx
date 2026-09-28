@@ -1,0 +1,237 @@
+---
+title: Comandos esenciales
+description: init, add, commit, status, log, diff, rm y mv explicados con ejemplos reales.
+---
+
+import Callout from '../../components/Callout.astro';
+import GitTerminal from '../../components/GitTerminal.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Estos comandos cubren el 80% de tu uso diario de Git. Domínalos y ya podrás trabajar.
+
+## `git init` — crear un repositorio
+
+Convierte una carpeta normal en un repositorio Git:
+
+```bash
+mkdir mi-proyecto
+cd mi-proyecto
+git init
+```
+
+```text
+Initialized empty Git repository in /ruta/mi-proyecto/.git/
+```
+
+A partir de ahora Git observa esa carpeta. Para crear el repo y la carpeta a la vez:
+
+```bash
+git init mi-proyecto
+```
+
+## `git status` — el estado actual
+
+Tu comando más usado. Muestra qué cambió, qué está preparado y qué está sin rastrear:
+
+```bash
+git status
+git status -s     # versión corta
+```
+
+```text
+ M estilos.css      # modificado, sin preparar
+A  index.html       # añadido (staged)
+?? notas.txt        # sin rastrear
+```
+
+## `git add` — preparar cambios
+
+Mueve cambios del working directory al staging:
+
+```bash
+git add archivo.txt        # un archivo
+git add carpeta/           # toda una carpeta
+git add .                  # todo lo nuevo y modificado desde la raíz
+git add -A                 # todo, incluyendo borrados
+git add "*.css"            # por patrón
+```
+
+Preparar **solo partes** de un archivo (muy útil):
+
+```bash
+git add -p archivo.txt
+```
+
+## `git commit` — guardar una foto
+
+Registra lo que está en el staging en el historial:
+
+```bash
+git commit -m "Añade formulario de contacto"
+```
+
+Sin `-m`, Git abre tu editor para que escribas un mensaje largo.
+
+```bash
+git commit                 # abre el editor
+git commit -am "mensaje"   # add + commit de archivos ya rastreados (¡no incluye nuevos!)
+```
+
+### Buenos mensajes de commit
+
+Un buen mensaje explica el **qué** y el **por qué**:
+
+```text
+✅ Corrige el cálculo del total cuando hay descuento
+
+El IVA se aplicaba antes del descuento, lo que inflaba el precio.
+Ahora se calcula sobre el subtotal ya descontado.
+```
+
+Evita:
+
+```text
+❌ cambios
+❌ arreglado
+❌ asdf
+```
+
+## `git log` — ver el historial
+
+```bash
+git log                    # historial completo
+git log --oneline          # una línea por commit
+git log --oneline --graph  # con gráfico de ramas
+git log -5                 # los últimos 5
+git log --author="Ana"     # filtrar por autor
+git log --since="2 weeks ago"
+```
+
+```text
+a1b2c3d (HEAD -> main) Añade formulario de contacto
+9f8e7d6 Corrige el cálculo del total
+4c3b2a1 Primer commit
+```
+
+Cada commit tiene un **hash** (ej. `a1b2c3d`), su identificador único. Puedes referirte a él por sus primeros caracteres.
+
+## `git diff` — ver qué cambió
+
+Muestra las diferencias línea por línea:
+
+```bash
+git diff                   # cambios sin preparar
+git diff --staged          # cambios preparados (staged)
+git diff HEAD              # todos los cambios desde el último commit
+git diff main feature      # diferencias entre dos ramas
+```
+
+```diff
+- const total = precio * 1.21;
++ const total = precio * 1.21 * (1 - descuento);
+```
+
+## Practica los comandos
+
+Usa esta **terminal interactiva** para ejecutar de verdad `git init`, `git status`, `git add`, `git commit`, `git log` y `git diff`. Crea archivos con `echo "texto" > archivo` y observa el panel derecho.
+
+<GitTerminal title="Practica: comandos esenciales" />
+
+<Callout type="tip">
+  Prueba esta secuencia y observa cómo cambian los tres paneles: <code>git init</code> → <code>echo "Hola" &gt; nota.txt</code> → <code>git status</code> → <code>git add .</code> → <code>git status</code> → <code>git commit -m "Primer commit"</code> → <code>git log --oneline</code>.
+</Callout>
+
+## `git rm` y `git mv` — borrar y renombrar
+
+```bash
+git rm archivo.txt             # borra del disco y lo prepara
+git rm --cached archivo.txt    # deja de rastrearlo, sin borrar el archivo
+git mv viejo.txt nuevo.txt     # renombra y prepara el cambio
+```
+
+`git rm --cached` es clave cuando subiste por error un archivo que ahora quieres ignorar.
+
+## `git show` — inspeccionar un commit
+
+```bash
+git show a1b2c3d
+git show HEAD              # el último commit
+git show HEAD~1            # el anterior
+```
+
+## Flujo completo de ejemplo
+
+```bash
+mkdir blog && cd blog
+git init
+git config user.name "Tu Nombre"
+git config user.email "tu@email.com"
+
+echo "# Mi Blog" > README.md
+git status
+git add README.md
+git commit -m "Crea el README inicial"
+
+echo "body { margin: 0; }" > estilos.css
+git add estilos.css
+git commit -m "Añade estilos base"
+
+git log --oneline
+```
+
+```text
+d4e5f6a Añade estilos base
+b2c3d4e Crea el README inicial
+```
+
+<Callout type="tip">
+  Commitear seguido y en unidades pequeñas es mejor que un commit gigante al final del día. Cada commit debería ser un cambio coherente que puedas describir en una frase.
+</Callout>
+
+## Construye el comando
+
+Un commit se escribe siempre con la misma estructura. Coloca las fichas en la terminal y verás cómo se forma el comando en directo. Ojo: hay fichas que no sobran.
+
+<DragLab
+  mode="comando"
+  title="Arma un git commit"
+  instruction="Arrasta las fichas a la terminal en el orden correcto. Las que sobren déjalas en las fichas: también te penalizan."
+  success="Ese es el commit perfecto: verbo, mensaje y contenido."
+  seed="comandos-cmd"
+  items={[
+    { id: 'git', code: 'git' },
+    { id: 'commit', code: 'commit' },
+    { id: 'm', code: '-m' },
+    { id: 'msg', code: '"Añade el carrito"' },
+    { id: 'd-pull', code: 'pull', decoy: true },
+    { id: 'd-log', code: 'log', decoy: true },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba los comandos esenciales"
+  questions={[
+    {
+      q: '¿Qué comando muestra el estado de los archivos?',
+      options: ['git log', 'git status', 'git diff', 'git show'],
+      answer: 1,
+      explanation: 'git status es tu brújula: dice qué está modificado, preparado o sin rastrear.',
+    },
+    {
+      q: '¿Qué comando muestra el historial resumido, con una línea por commit?',
+      options: ['git log --oneline', 'git status -s', 'git diff', 'git show'],
+      answer: 0,
+      explanation: 'git log --oneline muestra cada commit en una sola línea con su hash corto y mensaje.',
+    },
+    {
+      q: '¿Cuál de estos es un buen mensaje de commit?',
+      options: ['cambios', 'arreglado', 'fix: corrige el cálculo del IVA en ofertas', 'asdf'],
+      answer: 2,
+      explanation: 'Un buen mensaje es específico y descriptivo. El formato Conventional Commits (tipo: descripción) es muy usado.',
+    },
+  ]}
+/>
+
+Ya sabes crear historial. Ahora aprenderemos a **deshacer** cuando algo sale mal.

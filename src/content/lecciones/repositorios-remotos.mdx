@@ -1,0 +1,278 @@
+---
+title: Repositorios remotos
+description: remote, clone, fetch, pull y push. Cómo sincronizar tu trabajo con un servidor.
+---
+
+import Callout from '../../components/Callout.astro';
+import GitRemotes from '../../components/GitRemotes.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Hasta ahora todo ha pasado en tu computadora. Un **remoto** es una copia del repositorio alojada en un servidor (GitHub, GitLab…), que permite respaldar y colaborar.
+
+## ¿Qué es un remoto?
+
+Un remoto es un **alias con URL** a otro repositorio. El más común se llama `origin`.
+
+```bash
+git remote -v
+```
+
+```text
+origin  https://github.com/usuario/mi-proyecto.git (fetch)
+origin  https://github.com/usuario/mi-proyecto.git (push)
+```
+
+## `git clone` — copiar un repositorio
+
+Trae un repo completo (con todo su historial) desde un servidor:
+
+```bash
+git clone https://github.com/usuario/mi-proyecto.git
+git clone https://github.com/usuario/mi-proyecto.git otro-nombre
+git clone git@github.com:usuario/mi-proyecto.git    # vía SSH
+```
+
+Al clonar, Git:
+1. Descarga el repositorio completo.
+2. Configura `origin` apuntando a la URL.
+3. Crea una rama local `main` siguiendo a `origin/main`.
+
+## Conectar un repo local existente
+
+Si ya tienes un repo local y quieres subirlo a un repo vacío recién creado en GitHub:
+
+```bash
+git remote add origin https://github.com/usuario/mi-proyecto.git
+git branch -M main
+git push -u origin main
+```
+
+## `git fetch` — descargar sin fusionar
+
+Trae los cambios del remoto **sin** tocar tu rama de trabajo. Actualiza tus referencias remotas (`origin/main`) para que puedas ver qué hay nuevo:
+
+```bash
+git fetch
+git fetch origin
+git fetch origin main
+git fetch --all
+```
+
+```text
+From github.com:usuario/mi-proyecto
+   a1b2c3d..9f8e7d6  main       -> origin/main
+```
+
+Tras un fetch, puedes comparar antes de integrar:
+
+```bash
+git log HEAD..origin/main --oneline   # qué hay en el remoto que no tienes
+git diff HEAD origin/main             # diferencias
+```
+
+## `git pull` — descargar y fusionar
+
+Es `fetch` + `merge` (o `rebase`) en un solo paso:
+
+```bash
+git pull                 # trae y fusiona origin/main en tu main
+git pull --rebase        # trae y reaplica tus commits encima (historial limpio)
+git pull origin main
+```
+
+Configura el pull con rebase por defecto:
+
+```bash
+git config --global pull.rebase true
+```
+
+<Callout type="warn">
+  Haz `pull` antes de empezar a trabajar y antes de hacer `push`. Es la causa número uno de conflictos evitables.
+</Callout>
+
+## `git push` — subir tus commits
+
+Envía tus commits locales al remoto:
+
+```bash
+git push                       # sube la rama actual a su remoto configurado
+git push -u origin main        # primera vez: sube y establece el upstream
+git push origin feature-login  # sube una rama concreta
+git push --all                 # todas las ramas
+git push origin --delete rama-vieja   # borra una rama remota
+```
+
+El `-u` (o `--set-upstream`) vincula tu rama local con la remota, para que después baste `git push` a secas.
+
+## El flujo de sincronización típico
+
+```bash
+# 1. Antes de empezar: trae lo último
+git pull --rebase
+
+# 2. Trabaja y commitea
+git add .
+git commit -m "Añade nueva funcionalidad"
+
+# 3. Sube tus cambios
+git push
+```
+
+## `git push` rechazado: "non-fast-forward"
+
+Si alguien subió cambios después de tu último pull, Git rechaza el push:
+
+```text
+! [rejected]        main -> main (fetch first)
+error: failed to push some refs
+```
+
+Solución: **integra primero, luego sube**.
+
+```bash
+git pull --rebase
+git push
+```
+
+## Practica: sincroniza local ↔ remoto
+
+Este simulador tiene dos repositorios: **tu repo local** y **GitHub (origin)**. Haz commits, simula que un compañero sube cambios y usa `push`, `fetch` y `pull` para sincronizarlos. Observa cuándo el push es rechazado por *non-fast-forward*.
+
+<GitRemotes />
+
+## Ramas de seguimiento (tracking)
+
+Una rama local puede "seguir" a una remota. `git status` te informa de la relación:
+
+```text
+On branch main
+Your branch is ahead of 'origin/main' by 2 commits.
+  (use "git push" to publish your local commits)
+```
+
+Estados posibles:
+
+- **up to date**: sincronizadas.
+- **ahead**: tienes commits que el remoto no tiene (falta push).
+- **behind**: el remoto tiene commits que tú no (falta pull).
+- **diverged**: ambos avanzaron (necesitas pull + merge/rebase).
+
+## Ver y gestionar remotos
+
+```bash
+git remote -v                       # listar
+git remote add upstream <url>       # añadir otro remoto (típico en forks)
+git remote remove origin            # eliminar
+git remote rename origin viejo      # renombrar
+git remote set-url origin <nueva>   # cambiar URL
+```
+
+## Ejemplo: colaborar con un fork
+
+```bash
+# Clonas tu fork
+git clone git@github.com:tu-usuario/proyecto.git
+
+# Añades el repo original como "upstream"
+cd proyecto
+git remote add upstream git@github.com:organizacion/proyecto.git
+
+# Te mantienes al día con el original
+git fetch upstream
+git switch main
+git merge upstream/main
+git push origin main
+```
+
+## Escenario real: colaborar en un equipo
+
+Te incorporas a un proyecto. El primer día:
+
+```bash
+git clone git@github.com:equipo/proyecto.git
+cd proyecto
+git switch -c feature/mi-tarea
+# ... trabajas ...
+git add . && git commit -m "feat: mi primera tarea"
+git push -u origin feature/mi-tarea
+```
+
+Cada mañana, antes de empezar: `git switch main && git pull --rebase`.
+
+## Errores comunes
+
+<Callout type="warn">
+  **Push rechazado (non-fast-forward).** Significa que el remoto tiene commits que tú no tienes. Integra primero: `git pull --rebase` y luego `git push`.
+</Callout>
+
+<Callout type="danger">
+  **Forzar el push con `--force`.** Puede borrar el trabajo de tus compañeros. Evítalo salvo en tu propia rama, y aun así usa `--force-with-lease`.
+</Callout>
+
+<Callout type="warn">
+  **Olvidar hacer pull.** Trabajar días sin sincronizar garantiza conflictos dolorosos. Sincroniza a diario.
+</Callout>
+
+## Escribe el push
+
+El primer push es siempre el más importante: conecta tu repositorio local con GitHub. Monta el comando correcto.
+
+<DragLab
+  mode="comando"
+  title="Arma el push que publica tu rama"
+  instruction="Cuatro pasos: el ejecutable, la acción, la bandera que crea el seguimiento, el remoto y la rama. Las fichas sobrantes se quedan fuera."
+  success="Con ese push tu rama existe en GitHub y Git ya la recuerda sola."
+  seed="remotos-cmd"
+  items={[
+    { id: 'git', code: 'git' },
+    { id: 'push', code: 'push' },
+    { id: 'u', code: '-u' },
+    { id: 'origin', code: 'origin' },
+    { id: 'main', code: 'main' },
+    { id: 'd-fetch', code: 'fetch', decoy: true },
+    { id: 'd-pull', code: 'pull', decoy: true },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba los repositorios remotos"
+  questions={[
+    {
+      q: '¿Qué hace `git fetch`?',
+      options: [
+        'Descarga los cambios y los fusiona en tu rama',
+        'Descarga los cambios del remoto sin tocar tu rama',
+        'Sube tus commits al remoto',
+        'Crea un repositorio nuevo',
+      ],
+      answer: 1,
+      explanation: 'fetch solo actualiza las referencias remotas (origin/main). No modifica tu rama de trabajo hasta que hagas merge o rebase.',
+    },
+    {
+      q: '¿Cuál es la diferencia entre `git pull` y `git fetch`?',
+      options: [
+        'Son exactamente lo mismo',
+        'pull = fetch + merge/rebase; fetch solo descarga',
+        'fetch sube y pull baja',
+        'pull solo funciona con SSH',
+      ],
+      answer: 1,
+      explanation: 'git pull descarga e integra en un solo paso; git fetch solo descarga para que compares antes de integrar.',
+    },
+    {
+      q: 'Tu push fue rechazado por "non-fast-forward". ¿Qué haces?',
+      options: [
+        'Forzar el push siempre con --force',
+        'git pull --rebase y luego git push',
+        'Borrar el repositorio',
+        'git reset --hard',
+      ],
+      answer: 1,
+      explanation: 'El remoto tiene commits que tú no tienes: integra primero (pull --rebase) y luego sube.',
+    },
+  ]}
+/>
+
+Ya sabes sincronizar. En la próxima lección crearemos la cuenta de GitHub y configuraremos la autenticación.

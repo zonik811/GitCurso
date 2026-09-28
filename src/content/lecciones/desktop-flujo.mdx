@@ -1,0 +1,180 @@
+---
+title: Flujo de trabajo en GitHub Desktop
+description: Clona, haz commits, revisa el diff, publica y sincroniza con un clic.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Vamos a recorrer el ciclo diario completo: traer un repo, hacer cambios, commitear, publicar y sincronizar.
+
+## Clonar un repositorio
+
+1. **File → Clone repository** (o `Ctrl/Cmd + Shift + O`).
+2. Elige una pestaña:
+   - **GitHub.com**: tus repos y los de tus organizaciones.
+   - **URL**: pega cualquier URL (`.git`).
+3. Elige la **ruta local** donde guardarlo.
+4. Pulsa **Clone**.
+
+GitHub Desktop descarga el repo con todo su historial y te lo deja listo.
+
+## Crear un repositorio nuevo
+
+1. **File → New repository** (`Ctrl/Cmd + N`).
+2. Rellena:
+   - **Name**: nombre del proyecto.
+   - **Description**: opcional.
+   - **Local path**: dónde se creará.
+   - **Initialize with a README**.
+   - **Git ignore**: plantilla de tu lenguaje.
+   - **License**.
+3. Pulsa **Create repository**.
+
+Aún es local. Para subirlo a GitHub, pulsa **Publish repository** (puedes marcarlo como privado).
+
+## Hacer un commit
+
+Es el flujo estrella de Desktop:
+
+1. Edita tus archivos con tu editor favorito y guarda.
+2. Vuelve a Desktop: la pestaña **Changes** muestra los archivos modificados.
+3. **Marca las casillas** de los archivos que quieres incluir (esto es el `git add`).
+4. Selecciona un archivo para ver su **diff**: líneas rojas = eliminadas, verdes = añadidas.
+5. Escribe el **Summary** (obligatorio) y una **Description** (opcional). Esto es el mensaje de commit.
+6. Pulsa **Commit to main**.
+
+¡Listo, sin escribir un solo comando!
+
+<Callout type="tip">
+  El diff visual de Desktop es una de sus mejores bazas. Úsalo siempre antes de commitear: te ayuda a detectar cambios accidentales, archivos de más o líneas de debug olvidadas.
+</Callout>
+
+### Descartar cambios
+
+Si un archivo tiene cambios que no quieres, haz clic derecho → **Discard changes**. Es el equivalente a `git restore`. ¡Cuidado: no se puede deshacer!
+
+### Ignorar archivos
+
+Clic derecho sobre un archivo → **Ignore file** → elige un patrón. Desktop añade la regla a `.gitignore` automáticamente.
+
+## Publicar (el primer push)
+
+Un repo local no está en GitHub hasta que lo publicas:
+
+- Pulsa **Publish repository** en la barra superior.
+- Elige nombre, descripción y si será **privado**.
+- Pulsa **Publish repository**.
+
+Esto crea el repo en GitHub y sube tus commits (equivale a `git push -u origin main`).
+
+## Sincronizar: Fetch, Pull y Push
+
+Arriba a la derecha verás el estado y los botones de sincronización:
+
+| Botón | Equivale a | Qué hace |
+| --- | --- | --- |
+| **Fetch origin** | `git fetch` | Comprueba si hay cambios nuevos en GitHub. |
+| **Pull origin** | `git pull` | Trae e integra los cambios del remoto. |
+| **Push origin** | `git push` | Sube tus commits locales a GitHub. |
+
+Desktop muestra indicadores como:
+
+```text
+↑ 2 commits to push     (tienes 2 commits locales sin subir)
+↓ 3 commits to pull     (hay 3 commits en el remoto que no tienes)
+```
+
+El botón cambia según lo que necesites. Normalmente basta con pulsarlo.
+
+## Revisar el historial
+
+La pestaña **History** muestra todos los commits de la rama actual:
+
+- Haz clic en un commit para ver **qué archivos cambió y su diff**.
+- Haz clic derecho en un commit para:
+  - **Revert** (crea un commit inverso).
+  - **Amend** el último commit (solo si no está publicado).
+  - **Reset** a ese commit.
+  - **Cherry-pick** (traer ese commit a tu rama actual).
+  - **Copy SHA** (el hash del commit).
+
+## El ciclo diario completo
+
+```text
+1. Fetch/Pull origin          → trae lo último
+2. Editas tus archivos        → tu editor
+3. Revisas Changes y diffs    → Desktop
+4. Escribes Summary y commit  → Commit to main
+5. Push origin                → sube a GitHub
+6. Repetir
+```
+
+## Abrir el repo en la terminal o el editor
+
+- **Repository → Open in Terminal**: abre una terminal en la carpeta.
+- **Repository → Open in Visual Studio Code**: abre el proyecto en VS Code.
+
+Así puedes combinar la comodidad de Desktop con la potencia de la terminal.
+
+## Configuración útil
+
+En **File → Options**:
+
+- **Git**: tu nombre y correo (deben coincidir con GitHub).
+- **Appearance**: tema claro/oscuro.
+- **Prompts**: qué hacer al cambiar de rama con cambios sin guardar.
+- **Advanced**: editor externo, shell.
+
+## El ciclo diario sin comandos
+
+Tu día a día con Desktop siempre es la misma rueda. Coloca los pasos en el orden en el que los harías.
+
+<DragLab
+  mode="orden"
+  title="Publicar un cambio, de principio a fin"
+  instruction="Seis pasos: edita, revisa, confirma, sube, mira si hay novedades y trae lo que falte."
+  success="Ese es el ciclo completo. A partir de aquí solo dejas de escribir comandos."
+  seed="desktop-flujo-orden"
+  items={[
+    { id: 'd1', label: 'Programas en tu editor o IDE de siempre', icon: '💻' },
+    { id: 'd2', label: 'Abres Changes y revisas el diff con calma', icon: '🔍' },
+    { id: 'd3', label: 'Escribes el mensaje y pulsas Commit to main', icon: '📸' },
+    { id: 'd4', label: 'Push origin para subir ese commit', icon: '☁️' },
+    { id: 'd5', label: 'Fetch origin para saber si hay novedades', icon: '👀' },
+    { id: 'd6', label: 'Pull origin para traértelas y actualizarte', icon: '⬇️' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba el flujo en Desktop"
+  questions={[
+    {
+      q: 'Marcar casillas y pulsar "Commit to main" equivale a…',
+      options: ['git push', 'git add + git commit', 'git pull', 'git clone'],
+      answer: 1,
+      explanation: 'Las casillas son el staging (git add) y el botón Commit registra la foto en el historial (git commit).',
+    },
+    {
+      q: '¿Qué botón sube tus commits locales a GitHub?',
+      options: ['Fetch origin', 'Pull origin', 'Push origin', 'Publish'],
+      answer: 2,
+      explanation: 'Push origin envía tus commits locales al remoto. Fetch solo comprueba; Pull trae cambios.',
+    },
+    {
+      q: '¿Qué hace "Publish repository"?',
+      options: [
+        'Descarga el repositorio',
+        'Crea el repositorio en GitHub y sube tus commits',
+        'Borra el repositorio remoto',
+        'Crea una rama nueva',
+      ],
+      answer: 1,
+      explanation: 'Publish crea el repo en GitHub (público o privado) y hace el primer push de tu rama.',
+    },
+  ]}
+/>
+
+En la próxima lección veremos ramas, conflictos y Pull Requests dentro de Desktop.

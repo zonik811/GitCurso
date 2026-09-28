@@ -1,0 +1,60 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { cheatsheet } from '../data/cheatsheet';
+---
+
+<BaseLayout
+  title="Chuleta de comandos"
+  description="Los comandos de Git más usados, listos para copiar."
+  crumb="📋 Chuleta"
+>
+  <div class="page-head">
+    <h1>📋 Chuleta de comandos de Git</h1>
+    <p>Los comandos más usados del curso, organizados por categoría y listos para copiar.</p>
+  </div>
+
+  {
+    cheatsheet.map((cat) => (
+      <section class="cheat-section">
+        <h2>
+          {cat.icon} {cat.title}
+        </h2>
+        {cat.items.map((it) => (
+          <div class="cmd-row">
+            <div>
+              <code>{it.cmd}</code>
+              <span class="cmd-desc">{it.desc}</span>
+            </div>
+            <button class="cmd-copy" type="button" data-copy={it.cmd}>
+              Copiar
+            </button>
+          </div>
+        ))}
+      </section>
+    ))
+  }
+</BaseLayout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = btn.getAttribute('data-copy') || '';
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      btn.textContent = '¡Copiado!';
+      btn.classList.add('done');
+      setTimeout(() => {
+        btn.textContent = 'Copiar';
+        btn.classList.remove('done');
+      }, 1400);
+    });
+  });
+</script>

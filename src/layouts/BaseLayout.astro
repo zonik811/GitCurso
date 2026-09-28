@@ -1,0 +1,240 @@
+---
+import '../styles/global.css';
+import Sidebar from '../components/Sidebar.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  current?: string;
+  crumb?: string;
+  wide?: boolean;
+}
+
+const {
+  title,
+  description = 'Curso completo de Git, GitHub y GitHub Desktop, de cero a colaborar.',
+  current,
+  crumb,
+  wide = false,
+} = Astro.props;
+
+const fullTitle = title === 'Curso de Git' ? title : `${title} · Curso de Git`;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%91%82%3C/text%3E%3C/svg%3E" />
+    <title>{fullTitle}</title>
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('curso-git:theme');
+          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="read-progress" id="readProgress" aria-hidden="true"></div>
+    <div class="shell">
+      <Sidebar current={current} />
+      <div class="main">
+        <header class="topbar">
+          <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
+          <span class="crumb">{crumb ?? 'Curso de Git'}</span>
+          <span class="spacer"></span>
+          <a class="gh-link" href="/">Inicio</a>
+          <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambiar tema" title="Cambiar tema claro/oscuro">🌙</button>
+        </header>
+        <main class={`content${wide ? ' content-wide' : ''}`}>
+          <slot />
+        </main>
+        <footer class="site-footer">
+          Curso de Git · Hecho con <a href="https://astro.build">Astro</a> · Git, GitHub y GitHub Desktop
+        </footer>
+      </div>
+    </div>
+
+    <script>
+      /* ---------- Tema claro / oscuro ---------- */
+      const root = document.documentElement;
+      const themeBtn = document.getElementById('themeToggle');
+      const applyTheme = (theme: string) => {
+        root.dataset.theme = theme;
+        try {
+          localStorage.setItem('curso-git:theme', theme);
+        } catch {}
+        if (themeBtn) {
+          themeBtn.textContent = theme === 'light' ? '☀️' : '🌙';
+          themeBtn.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+        }
+      };
+      if (themeBtn) {
+        themeBtn.textContent = root.dataset.theme === 'light' ? '☀️' : '🌙';
+        themeBtn.addEventListener('click', () =>
+          applyTheme(root.dataset.theme === 'light' ? 'dark' : 'light'),
+        );
+      }
+
+      /* ---------- Barra de progreso de lectura ---------- */
+      const progressBar = document.getElementById('readProgress');
+      if (progressBar) {
+        const updateProgress = () => {
+          const doc = document.documentElement;
+          const max = doc.scrollHeight - doc.clientHeight;
+          const pct = max > 0 ? Math.min(100, (doc.scrollTop / max) * 100) : 0;
+          progressBar.style.width = pct + '%';
+        };
+        document.addEventListener('scroll', updateProgress, { passive: true });
+        window.addEventListener('resize', updateProgress);
+        updateProgress();
+      }
+
+      /* ---------- Lecciones completadas ---------- */
+      const DONE_KEY = 'curso-git:completed';
+      const getDone = (): Set<string> => {
+        try {
+          return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]'));
+        } catch {
+          return new Set();
+        }
+      };
+      const setDone = (done: Set<string>) => {
+        try {
+          localStorage.setItem(DONE_KEY, JSON.stringify([...done]));
+        } catch {}
+      };
+      function renderDone() {
+        const done = getDone();
+        document.querySelectorAll<HTMLElement>('[data-lesson-link]').forEach((a) => {
+          a.classList.toggle('done', done.has(a.dataset.lessonLink || ''));
+        });
+        document.querySelectorAll<HTMLButtonElement>('[data-complete]').forEach((btn) => {
+          const isDone = done.has(btn.dataset.complete || '');
+          btn.classList.toggle('is-done', isDone);
+          btn.textContent = isDone ? '✓ Lección completada' : 'Marcar como completada';
+        });
+        document.querySelectorAll<HTMLElement>('[data-progress-total]').forEach((el) => {
+          const total = Number(el.dataset.progressTotal || 0);
+          const count = el.querySelector<HTMLElement>('[data-progress-count]');
+          const bar = el.querySelector<HTMLElement>('[data-progress-bar]');
+          if (count) count.textContent = String(done.size);
+          if (bar) bar.style.width = (total ? (done.size / total) * 100 : 0) + '%';
+        });
+      }
+      document.querySelectorAll<HTMLButtonElement>('[data-complete]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const done = getDone();
+          const slug = btn.dataset.complete || '';
+          if (done.has(slug)) done.delete(slug);
+          else done.add(slug);
+          setDone(done);
+          renderDone();
+        });
+      });
+      renderDone();
+
+      /* ---------- Anclas en los títulos ---------- */
+      document.querySelectorAll<HTMLElement>('.prose h2[id], .prose h3[id]').forEach((h) => {
+        const a = document.createElement('a');
+        a.className = 'heading-anchor';
+        a.href = '#' + h.id;
+        a.setAttribute('aria-label', 'Enlace a esta sección');
+        a.textContent = '#';
+        h.appendChild(a);
+      });
+
+      /* ---------- TOC con scrollspy ---------- */
+      const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.lesson-toc a[href^="#"]'));
+      if (tocLinks.length) {
+        const headings = tocLinks
+          .map((a) => document.getElementById(a.getAttribute('href')!.slice(1)))
+          .filter((h): h is HTMLElement => Boolean(h));
+        const spy = () => {
+          const y = window.scrollY + 120;
+          let active = headings[0];
+          for (const h of headings) if (h.offsetTop <= y) active = h;
+          tocLinks.forEach((a) =>
+            a.classList.toggle('active', a.getAttribute('href') === '#' + active?.id),
+          );
+        };
+        document.addEventListener('scroll', spy, { passive: true });
+        spy();
+      }
+
+      /* ---------- Navegación con teclado (← / →) ---------- */
+      const lessonNav = document.querySelector<HTMLElement>('[data-lesson-nav]');
+      if (lessonNav) {
+        document.addEventListener('keydown', (e) => {
+          const tag = (document.activeElement as HTMLElement | null)?.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          const prev = lessonNav.dataset.prev;
+          const next = lessonNav.dataset.next;
+          if (e.key === 'ArrowRight' && next) location.href = `/lecciones/${next}/`;
+          if (e.key === 'ArrowLeft' && prev) location.href = `/lecciones/${prev}/`;
+        });
+      }
+
+      /* ---------- Menú lateral en móvil ---------- */
+      const toggle = document.getElementById('menuToggle');
+      toggle?.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+      document.querySelectorAll('.nav-lessons a').forEach((a) =>
+        a.addEventListener('click', () => document.body.classList.remove('nav-open')),
+      );
+      document.addEventListener('click', (e) => {
+        if (!document.body.classList.contains('nav-open')) return;
+        const t = e.target as HTMLElement;
+        if (t.closest('#sidebar') || t.closest('#menuToggle')) return;
+        document.body.classList.remove('nav-open');
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') document.body.classList.remove('nav-open');
+      });
+
+      /* ---------- Botón de copiar en bloques de código ---------- */
+      document.querySelectorAll('pre').forEach((pre) => {
+        if (pre.parentElement?.classList.contains('code-wrap')) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'code-wrap';
+        const lang = (pre as HTMLElement).dataset.language;
+        if (lang) wrap.dataset.lang = lang;
+
+        pre.parentNode?.insertBefore(wrap, pre);
+        wrap.appendChild(pre);
+
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Copiar código');
+        btn.textContent = 'Copiar';
+        wrap.appendChild(btn);
+
+        btn.addEventListener('click', async () => {
+          const text = pre.querySelector('code')?.innerText ?? pre.innerText;
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+          }
+          btn.textContent = '¡Copiado!';
+          btn.classList.add('done');
+          setTimeout(() => {
+            btn.textContent = 'Copiar';
+            btn.classList.remove('done');
+          }, 1600);
+        });
+      });
+    </script>
+  </body>
+</html>

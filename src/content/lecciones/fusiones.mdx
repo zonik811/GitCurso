@@ -1,0 +1,254 @@
+---
+title: Fusiones y conflictos
+description: merge fast-forward vs. three-way, y cómo resolver conflictos paso a paso.
+---
+
+import Callout from '../../components/Callout.astro';
+import GitTerminal from '../../components/GitTerminal.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Ya sabes crear ramas. Ahora toca **unirlas**. Fusionar (`merge`) integra los cambios de una rama en otra. A veces es automático; otras, Git necesita tu ayuda.
+
+## `git merge` — fusionar ramas
+
+El patrón es: primero te colocas en la rama **destino** (la que recibirá los cambios) y luego fusionas la otra.
+
+```bash
+git switch main
+git merge feature-carrito
+```
+
+## Tipos de fusión
+
+### Fast-forward (avance rápido)
+
+Si `main` no ha avanzado desde que creaste la rama, Git simplemente **mueve el puntero hacia adelante**. No se crea commit de fusión.
+
+```text
+Antes:            Después:
+  main              main
+    │                 │
+    A ──► B ──► C      A ──► B ──► C
+                ▲                  ▲
+          feature              feature
+```
+
+```text
+Fast-forward
+ carrito.js | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+```
+
+### Three-way merge (fusión de tres vías)
+
+Si ambas ramas avanzaron, Git combina los cambios y crea un **commit de fusión** con dos padres.
+
+```text
+        main
+          │
+   A ──► B ──► M   ← commit de merge
+         \    /
+          C ──
+          ▲
+      feature
+```
+
+```bash
+git merge feature-carrito --no-ff   # fuerza un commit de merge aunque sea fast-forward
+```
+
+`--no-ff` es útil para preservar en el historial el hecho de que existió una rama (muy usado en Git Flow).
+
+## Practica una fusión
+
+Reproduce los dos tipos de fusión en esta terminal. El panel **Ramas** y **Commits** te muestra dónde apunta cada rama tras el merge.
+
+<GitTerminal title="Practica: merge y fast-forward" branches />
+
+<Callout type="tip">
+  **Fast-forward:** `git init` → `git add .` → `git commit -m "Base"` → `git branch feature` → `git switch feature` → `echo "x" > f.txt` → `git add .` → `git commit -m "Feature"` → `git switch main` → `git merge feature`. Como main no avanzó, verás `Fast-forward`.
+  <br /><br />
+  **Three-way:** repite pero, tras crear la rama, haz también un commit en `main` antes de fusionar. Ahora Git crea un **commit de merge** con dos padres.
+</Callout>
+
+## Conflictos: cuando Git no puede decidir solo
+
+Un conflicto ocurre cuando **dos ramas modificaron la misma línea** del mismo archivo de forma distinta. Git no adivina: te pide que decidas.
+
+```text
+Auto-merging index.html
+CONFLICT (content): Merge conflict in index.html
+Automatic merge failed; fix conflicts and then commit the result.
+```
+
+### Cómo se ve un conflicto
+
+Git inserta **marcadores** en el archivo:
+
+```text
+<<<<<<< HEAD
+<h1>Bienvenido a mi sitio</h1>
+=======
+<h1>Hola mundo</h1>
+>>>>>>> feature-carrito
+```
+
+- `<<<<<<< HEAD` … `=======`: lo que hay en tu rama actual.
+- `=======` … `>>>>>>>`: lo que viene de la otra rama.
+
+### Resolver un conflicto paso a paso
+
+**1. Mira qué archivos están en conflicto:**
+
+```bash
+git status
+```
+
+```text
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+        both modified:   index.html
+```
+
+**2. Abre el archivo y edítalo.** Decide el resultado final y **borra los marcadores**. Por ejemplo:
+
+```html
+<h1>Bienvenido a mi sitio</h1>
+```
+
+(o combina ambas versiones si hace falta).
+
+**3. Marca como resuelto y termina la fusión:**
+
+```bash
+git add index.html
+git commit              # Git propone un mensaje de merge; guárdalo
+```
+
+### Herramientas de ayuda
+
+```bash
+git merge --abort       # cancela la fusión y vuelve atrás
+git mergetool           # abre una herramienta visual de 3 vías
+```
+
+VS Code muestra los conflictos con botones "Accept Current", "Accept Incoming", "Accept Both". Es la forma más cómoda de resolverlos.
+
+<Callout type="tip">
+  Los conflictos **no son errores**: son Git pidiéndote una decisión de negocio que solo tú puedes tomar. Resuélvelos pronto y en commits pequeños para que sean fáciles.
+</Callout>
+
+## Evitar conflictos
+
+- **Fusiona/actualiza con frecuencia.** Ramas que viven semanas acumulan divergencias.
+- **Ramas pequeñas y de vida corta.** Idealmente días, no meses.
+- **Divide el trabajo por zonas del código**, no por archivos que todos tocan.
+- **Comunica**: si dos personas van a tocar el mismo archivo, coordinen.
+
+## Deshacer una fusión
+
+Si fusionaste y te arrepientes (aún sin publicar):
+
+```bash
+git merge --abort       # si la fusión está en curso
+git reset --hard HEAD~1 # si ya se creó el commit de merge
+```
+
+Si ya la publicaste, usa `git revert -m 1 <hash-del-merge>`.
+
+## Ejemplo completo
+
+```bash
+git switch main
+git merge feature-login
+# CONFLICT en auth.js
+# ... editas auth.js, quitas los marcadores ...
+git add auth.js
+git commit -m "Fusiona feature-login y resuelve conflicto en auth.js"
+git log --oneline --graph
+```
+
+## Escenario real: integrar dos funcionalidades
+
+Ana añade el carrito en `feature/carrito` y tú el login en `feature/login`. Cuando ambas están listas, quien integra se coloca en `main` y las fusiona una a una:
+
+```bash
+git switch main
+git merge feature/carrito
+git merge feature/login
+```
+
+Si ambas tocaron el mismo archivo (por ejemplo `auth.js`), el segundo merge pedirá que resuelvas el conflicto.
+
+## Errores comunes
+
+<Callout type="warn">
+  **Fusionar en la rama equivocada.** Recuerda el patrón: primero te colocas en la rama destino (`git switch main`) y luego ejecutas `git merge <rama>`.
+</Callout>
+
+<Callout type="danger">
+  **Commitear los marcadores de conflicto.** Si dejas `<<<<<<<`, `=======` o `>>>>>>>` en el archivo, el proyecto quedará roto. Bórralos siempre antes de `git add`.
+</Callout>
+
+<Callout type="warn">
+  **Fusionar una rama muy antigua.** Cuanto más tiempo vive una rama, más conflictos acumula. Fusiona con frecuencia y mantén ramas cortas.
+</Callout>
+
+## Dibuja una fusión de tres vías
+
+Cuando dos ramas han avanzado en paralelo, el historial se bifurca y luego se une. Une cada commit con el que le sigue para reconstruir el grafo.
+
+<DragLab
+  mode="grafo"
+  nodeW={132}
+  nodeH={58}
+  title="Construye el grafo del three-way merge"
+  instruction="Cuatro commits: main avanza a B, otra rama sale de A, ambas vuelven a encontrarse en el commit de fusión M. Une cada nodo con su sucesor."
+  success="Ese es el three-way merge: dos padres, un commit de fusión."
+  seed="fusiones-grafo"
+  nodes={[
+    { id: 'A', label: 'A', sub: 'Base', icon: '●', x: 75, y: 0 },
+    { id: 'B', label: 'B', sub: 'Rama main', icon: '●', x: 0, y: 110 },
+    { id: 'C', label: 'C', sub: 'Rama perfil', icon: '●', x: 150, y: 110 },
+    { id: 'M', label: 'M', sub: 'Merge', icon: '⑂', x: 75, y: 250 },
+  ]}
+  edges={[
+    ['A', 'B'],
+    ['A', 'C'],
+    ['B', 'M'],
+    ['C', 'M'],
+  ]}
+/>
+
+<Quiz
+  title="Comprueba las fusiones"
+  questions={[
+    {
+      q: '¿Cuándo ocurre un conflicto de fusión?',
+      options: [
+        'Siempre que se fusionan dos ramas',
+        'Cuando dos ramas modifican la misma línea de forma distinta',
+        'Cuando no hay ningún commit',
+        'Al hacer git push',
+      ],
+      answer: 1,
+      explanation: 'Git resuelve automáticamente los cambios en zonas distintas. Solo pide ayuda cuando dos cambios chocan en la misma línea.',
+    },
+    {
+      q: '¿Qué tipo de fusión solo mueve el puntero sin crear commit de merge?',
+      options: ['Three-way merge', 'Fast-forward', 'Squash', 'Rebase'],
+      answer: 1,
+      explanation: 'En fast-forward la rama destino no había avanzado, así que Git simplemente adelanta el puntero.',
+    },
+    {
+      q: '¿Qué comando cancela una fusión en curso con conflictos?',
+      options: ['git merge --abort', 'git reset --soft', 'git revert', 'git branch -d'],
+      answer: 0,
+      explanation: 'git merge --abort revierte la fusión y te devuelve al estado anterior.',
+    },
+  ]}
+/>
+
+Dominado el merge, veremos herramientas para mantener un historial más limpio: rebase, stash y tags.

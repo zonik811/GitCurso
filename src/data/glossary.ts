@@ -1,0 +1,43 @@
+export interface GlossaryTerm {
+  term: string;
+  def: string;
+}
+
+export const glossary: GlossaryTerm[] = [
+  { term: 'Repositorio (repo)', def: 'El proyecto junto con todo su historial de cambios. Es la carpeta del proyecto "con memoria".' },
+  { term: 'Commit', def: 'Una "foto" del proyecto en un momento dado, con un hash único, autor, fecha y mensaje. Unidad básica del historial.' },
+  { term: 'Hash (SHA)', def: 'Identificador único de un commit (p. ej. a1b2c3d). Puedes referirte a un commit por sus primeros caracteres.' },
+  { term: 'HEAD', def: 'Puntero que indica dónde estás: normalmente apunta a la rama actual y, a través de ella, al último commit.' },
+  { term: 'Rama (branch)', def: 'Un puntero móvil a un commit. Permite líneas de trabajo paralelas sin interferirse.' },
+  { term: 'main', def: 'Nombre de la rama principal por convención actual (antes se usaba master).' },
+  { term: 'Working directory', def: 'Tu carpeta de trabajo, donde editas los archivos antes de prepararlos o commitearlos.' },
+  { term: 'Staging area (índice)', def: 'Bandeja donde colocas los cambios que entrarán en el próximo commit.' },
+  { term: 'Untracked', def: 'Archivo que Git ve pero nunca ha rastreado.' },
+  { term: 'Remote (remoto)', def: 'Copia del repositorio en un servidor, normalmente llamado origin.' },
+  { term: 'origin', def: 'Nombre por defecto del remoto principal.' },
+  { term: 'upstream', def: 'Convención para el repositorio original en un fork; también, la rama remota que sigue una local.' },
+  { term: 'clone', def: 'Copia completa de un repositorio remoto, con todo su historial.' },
+  { term: 'fetch', def: 'Descarga cambios del remoto sin fusionarlos en tu rama.' },
+  { term: 'pull', def: 'Descarga e integra cambios: equivale a fetch + merge (o rebase).' },
+  { term: 'push', def: 'Envía tus commits locales al repositorio remoto.' },
+  { term: 'Fork', def: 'Copia de un repositorio en tu propia cuenta de GitHub, vinculada al original.' },
+  { term: 'Pull Request (PR)', def: 'Propuesta formal de cambios para que los revisen antes de integrarlos.' },
+  { term: 'Issue', def: 'Ticket en GitHub para reportar un bug, proponer una mejora o registrar una tarea.' },
+  { term: 'Merge', def: 'Fusión de los cambios de una rama en otra.' },
+  { term: 'Fast-forward', def: 'Fusión que solo mueve el puntero hacia adelante, sin crear commit de merge.' },
+  { term: 'Three-way merge', def: 'Fusión de dos ramas que divergieron; crea un commit de merge con dos padres.' },
+  { term: 'Conflicto', def: 'Situación en la que dos ramas modifican la misma línea de forma distinta; Git pide que decidas.' },
+  { term: 'Rebase', def: 'Reaplica tus commits sobre otra base, produciendo un historial lineal. No lo uses en commits ya publicados.' },
+  { term: 'Squash', def: 'Combinar varios commits en uno solo.' },
+  { term: 'Cherry-pick', def: 'Aplicar un commit concreto de otra rama a la actual.' },
+  { term: 'Stash', def: 'Guardar cambios sin commitear en un cajón temporal para recuperarlos después.' },
+  { term: 'Tag', def: 'Etiqueta que marca un commit importante, normalmente una versión (v1.0.0).' },
+  { term: 'reflog', def: 'Registro de todos los movimientos de HEAD; permite recuperar commits "perdidos".' },
+  { term: 'Revert', def: 'Deshacer un commit creando otro con los cambios inversos; seguro en ramas compartidas.' },
+  { term: '.gitignore', def: 'Archivo que indica a Git qué archivos o patrones no debe rastrear.' },
+  { term: 'git bisect', def: 'Búsqueda binaria en el historial para encontrar el commit que introdujo un fallo.' },
+  { term: 'Git Flow', def: 'Flujo de trabajo con ramas de larga vida (develop, release, hotfix) para releases planificadas.' },
+  { term: 'GitHub Flow', def: 'Flujo simple: main siempre desplegable, una rama por cambio y Pull Request.' },
+  { term: 'Trunk-Based', def: 'Flujo en el que todos integran con frecuencia en main, con ramas muy cortas y CI.' },
+  { term: 'CI (Integración Continua)', def: 'Automatización que compila y prueba el código en cada push o Pull Request.' },
+];

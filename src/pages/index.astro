@@ -1,0 +1,144 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { curriculum, totalLessons, totalMinutes, labs } from '../data/curriculum';
+
+const numberFor = (slug: string) => {
+  let n = 0;
+  for (const m of curriculum) {
+    for (const l of m.lessons) {
+      n++;
+      if (l.slug === slug) return n.toString().padStart(2, '0');
+    }
+  }
+  return '';
+};
+
+const highlights = [
+  {
+    icon: '🧠',
+    title: 'Entiende, no memorices',
+    text: 'Cada comando se explica con el modelo mental detrás: qué hace Git por dentro y por qué.',
+  },
+  {
+    icon: '💻',
+    title: 'Comandos y GUI',
+    text: 'Aprende la terminal y también GitHub Desktop, para que elijas la herramienta de cada momento.',
+  },
+  {
+    icon: '🤝',
+    title: 'Listo para colaborar',
+    text: 'Ramas, Pull Requests, conflictos y flujos de equipo: lo que se usa en proyectos reales.',
+  },
+  {
+    icon: '✅',
+    title: 'Ejemplos copiables',
+    text: 'Todos los bloques de comandos tienen botón de copiar y ejemplos que puedes ejecutar ya.',
+  },
+];
+---
+
+<BaseLayout title="Curso de Git">
+  <section class="hero">
+    <span class="pill">Curso gratuito · {totalLessons} lecciones · {totalMinutes} min</span>
+    <h1>
+      Aprende <span class="grad">Git, GitHub</span><br />y GitHub Desktop desde cero
+    </h1>
+    <p class="lead">
+      Un curso práctico y en español que te lleva del primer <code>git init</code> hasta
+      colaborar en proyectos reales con ramas, Pull Requests y control de versiones con
+      confianza.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href={`/lecciones/${curriculum[0].lessons[0].slug}/`}>
+        Empezar el curso →
+      </a>
+      <a class="btn ghost" href="#temario">Ver el temario</a>
+      <a class="btn ghost" href="#labs">🧪 Laboratorios</a>
+    </div>
+
+    <div class="progress-card" data-progress-total={totalLessons}>
+      <div class="progress-card-head">
+        <span>Tu progreso</span>
+        <span><strong data-progress-count>0</strong> de {totalLessons} lecciones</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" data-progress-bar></div></div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><div class="n">{curriculum.length}</div><div class="l">Módulos</div></div>
+    <div class="stat"><div class="n">{totalLessons}</div><div class="l">Lecciones</div></div>
+    <div class="stat"><div class="n">{totalMinutes}</div><div class="l">Minutos de contenido</div></div>
+    <div class="stat"><div class="n">100%</div><div class="l">Práctico y en español</div></div>
+  </div>
+
+  <section class="section">
+    <h2>¿Por qué este curso?</h2>
+    <p class="sub">Una ruta clara, progresiva y sin relleno.</p>
+    <div class="checks">
+      {
+        highlights.map((h) => (
+          <div class="check">
+            <div class="ci">{h.icon}</div>
+            <h4>{h.title}</h4>
+            <p>{h.text}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section" id="labs">
+    <h2>Laboratorios interactivos</h2>
+    <p class="sub">Aprende haciendo: terminales y simuladores que corren en tu navegador, sin instalar nada.</p>
+    <div class="labs-grid">
+      {
+        labs.map((lab) => (
+          <a class="lab-card" href={`/lecciones/${lab.slug}/`}>
+            <span class="lab-kind">{lab.kind}</span>
+            <span class="lab-icon">{lab.icon}</span>
+            <span class="lab-title">{lab.title}</span>
+            <span class="lab-desc">{lab.description}</span>
+            <span class="lab-cta">Abrir laboratorio →</span>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section" id="temario">
+    <h2>Temario</h2>
+    <p class="sub">Seis módulos que van de los fundamentos a las buenas prácticas de equipo.</p>
+    <div class="module-grid">
+      {
+        curriculum.map((module) => (
+          <article class="module-card">
+            <div class="mc-head">
+              <span class="mc-icon">{module.icon}</span>
+              <h3>{module.title}</h3>
+            </div>
+            <p>{module.description}</p>
+            <ul>
+              {module.lessons.map((lesson) => (
+                <li>
+                  <a href={`/lecciones/${lesson.slug}/`}>
+                    <span class="num">{numberFor(lesson.slug)}</span>
+                    <span>{lesson.title}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section" style="text-align:center">
+    <h2>¿Listo para empezar?</h2>
+    <p class="sub">No necesitas experiencia previa. Solo ganas de aprender.</p>
+    <a class="btn primary" href={`/lecciones/${curriculum[0].lessons[0].slug}/`}>
+      Ir a la primera lección →
+    </a>
+  </section>
+</BaseLayout>

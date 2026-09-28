@@ -1,0 +1,141 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { flatLessons, getLessonNeighbors } from '../../data/curriculum';
+import { lessonExtras } from '../../data/lessonExtras';
+
+export async function getStaticPaths() {
+  const lecciones = await getCollection('lecciones');
+  return lecciones.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+
+const meta = flatLessons.find((l) => l.slug === entry.id);
+const { prev, next } = getLessonNeighbors(entry.id);
+const extras = lessonExtras[entry.id];
+
+const num = (meta?.index ?? 0) + 1;
+const numStr = num.toString().padStart(2, '0');
+const totalStr = flatLessons.length.toString().padStart(2, '0');
+
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+<BaseLayout
+  title={meta?.title ?? 'Lección'}
+  description={meta?.description}
+  current={entry.id}
+  crumb={`${meta?.moduleIcon ?? ''} ${meta?.moduleTitle ?? 'Lección'}`}
+  wide
+>
+  <div class="lesson-layout">
+    <div class="lesson-main">
+      <article class="prose lesson-head">
+        <span class="lesson-badge">
+          {meta?.moduleIcon} {meta?.moduleTitle} · Lección {numStr}/{totalStr}
+        </span>
+        <h1>{meta?.title ?? entry.data.title}</h1>
+        {meta?.description && <p>{meta.description}</p>}
+        <div class="lesson-meta">
+          <span>⏱️ {meta?.duration ?? 5} min de lectura</span>
+          <span>📈 Nivel: {num <= 4 ? 'Principiante' : num <= 11 ? 'Intermedio' : 'Avanzado'}</span>
+          <span>⌨️ Pulsa ← / → para navegar</span>
+        </div>
+      </article>
+
+      {
+        extras && (
+          <aside class="objectives">
+            <p class="objectives-title">🎯 Al terminar esta lección sabrás…</p>
+            <ul>
+              {extras.objectives.map((o) => (
+                <li>{o}</li>
+              ))}
+            </ul>
+          </aside>
+        )
+      }
+
+      <div class="prose">
+        <Content />
+      </div>
+
+      {
+        extras && (
+          <section class="lesson-extra">
+            <div class="key-ideas">
+              <h2>📌 Ideas clave</h2>
+              <ul>
+                {extras.summary.map((s) => (
+                  <li>{s}</li>
+                ))}
+              </ul>
+            </div>
+            <div class="exercises">
+              <h2>✏️ Ejercicios propuestos</h2>
+              <ol>
+                {extras.exercises.map((e) => (
+                  <li>{e}</li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )
+      }
+
+      <button class="complete-btn" type="button" data-complete={entry.id}>
+        Marcar como completada
+      </button>
+
+      <nav class="lesson-nav">
+        {
+          prev ? (
+            <a href={`/lecciones/${prev.slug}/`}>
+              <span class="dir">← Anterior</span>
+              <span class="ttl">{prev.title}</span>
+            </a>
+          ) : (
+            <span class="empty" />
+          )
+        }
+        {
+          next ? (
+            <a class="next" href={`/lecciones/${next.slug}/`}>
+              <span class="dir">Siguiente →</span>
+              <span class="ttl">{next.title}</span>
+            </a>
+          ) : (
+            <a class="next" href="/lecciones/">
+              <span class="dir">Has terminado 🎉</span>
+              <span class="ttl">Volver al temario</span>
+            </a>
+          )
+        }
+      </nav>
+    </div>
+
+    {
+      toc.length > 0 && (
+        <aside class="lesson-toc">
+          <div class="toc-inner">
+            <p class="toc-title">En esta lección</p>
+            <ul>
+              {toc.map((h) => (
+                <li class={`toc-h${h.depth}`}>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      )
+    }
+  </div>
+
+  <div data-lesson-nav hidden data-prev={prev?.slug ?? ''} data-next={next?.slug ?? ''}></div>
+</BaseLayout>

@@ -1,0 +1,180 @@
+---
+title: Ramas, conflictos y Pull Requests en Desktop
+description: Crea ramas, cambia entre ellas, resuelve conflictos y abre PRs desde la app.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Ya sabes commitear y sincronizar. Ahora las tres tareas que más miedo dan por terminal, resueltas visualmente.
+
+## Crear una rama
+
+En la barra superior, pulsa **Current Branch → New Branch**:
+
+1. Escribe el nombre (ej. `feature/login`).
+2. Elige la rama base (**based on** `main`).
+3. Pulsa **Create Branch**.
+
+Desktop crea la rama y se cambia a ella automáticamente (equivale a `git switch -c`).
+
+## Cambiar de rama
+
+Pulsa **Current Branch** y elige la rama de la lista. Desktop cambia tu working directory al instante.
+
+Si tienes cambios sin commitear, Desktop te preguntará qué hacer:
+
+- **Leave my changes on this branch** (llevarlos contigo, como `stash`).
+- **Bring my changes to the new branch**.
+- **Cancel**.
+
+## Publicar una rama
+
+Tras el primer commit en una rama nueva, pulsa **Publish branch** para subirla a GitHub.
+
+## Fusionar una rama (merge)
+
+1. Cámbiate a la rama **destino** (`main`).
+2. **Branch → Merge into current branch**.
+3. Selecciona la rama que quieres fusionar.
+4. Confirma.
+
+Si no hay conflictos, listo. Si los hay, Desktop te avisa.
+
+## Resolver conflictos visualmente
+
+Esta es la parte donde Desktop brilla. Cuando hay un conflicto:
+
+1. Desktop muestra los archivos en conflicto con una advertencia.
+2. Ábrelos en tu editor (botón **Open in Visual Studio Code**).
+3. VS Code resalta los conflictos y ofrece botones:
+   - **Accept Current Change** (tu rama).
+   - **Accept Incoming Change** (la otra rama).
+   - **Accept Both Changes**.
+   - **Compare Changes**.
+4. Edita hasta dejar el resultado correcto y **borra los marcadores** (`<<<<<<<`, `=======`, `>>>>>>>`).
+5. Vuelve a Desktop, marca el archivo y **Commit** para cerrar la fusión.
+
+```text
+<<<<<<< HEAD
+const API = "https://prod.api.com";
+=======
+const API = "https://staging.api.com";
+>>>>>>> feature/login
+```
+
+<Callout type="tip">
+  Con el editor y Desktop lado a lado, resolver conflictos deja de dar miedo. Recuerda: no hay prisa, elige el resultado correcto y guarda.
+</Callout>
+
+## Abrir un Pull Request desde Desktop
+
+Desktop puede crear el PR por ti:
+
+1. Asegúrate de tener tu rama con commits **publicados** (push).
+2. Pulsa **Create Pull Request** (o **Branch → Create Pull Request**).
+3. Desktop abre el navegador en la página de GitHub con el PR pre-rellenado.
+4. Completa título y descripción, y pulsa **Create pull request**.
+
+También puedes previsualizarlo: **Branch → Preview Pull Request** muestra qué se fusionaría.
+
+## Traer los cambios de un PR para revisarlo
+
+¿Eres revisor? Puedes traer la rama del PR localmente:
+
+1. **Branch → Pull Request** (o el menú **Current Branch**).
+2. Elige el PR de la lista.
+3. Desktop trae la rama y te permite revisarla y probarla localmente.
+
+## Actualizar tu rama con main
+
+Antes de abrir un PR conviene estar al día con `main`:
+
+1. Cámbiate a `main` y pulsa **Pull origin**.
+2. Vuelve a tu rama.
+3. **Branch → Merge into current branch** → elige `main`, o **Rebase current branch** para un historial lineal.
+
+## Flujo colaborativo completo en Desktop
+
+```text
+1. Pull origin en main               → base actualizada
+2. New Branch: feature/nueva         → crea rama
+3. Editar + Commit                   → Changes → Commit
+4. Publish branch                    → sube la rama
+5. Create Pull Request               → abre el PR
+6. Atender review → más commits → Push
+7. Merge del PR en GitHub            → integrado
+8. Volver a main → Pull origin       → trae el merge
+9. Branch → Delete branch            → limpia
+```
+
+## Comparación: Desktop vs. terminal
+
+| Tarea | Terminal | GitHub Desktop |
+| --- | --- | --- |
+| Commit | `git commit -m` | Summary + botón |
+| Cambiar rama | `git switch x` | Menú Current Branch |
+| Ver diff | `git diff` | Vista de colores |
+| Resolver conflicto | Editor + `git add` | Editor + botones |
+| Pull Request | Push + navegador | Create Pull Request |
+| Rebase interactivo | `git rebase -i` | ❌ (usa terminal) |
+
+## Rama, PR y limpieza en Desktop
+
+El flujo colaborativo completo, paso a paso. Esta secuencia es la que vas a repetir en cada proyecto real.
+
+<DragLab
+  mode="orden"
+  title="Flujo colaborativo completo"
+  instruction="Ocho pasos: crear la rama, trabajar, publicarla, proponer el PR, integrarlo, actualizar main y limpiar."
+  success="Flujo colaborativo completo, sin tocar la terminal."
+  seed="desktop-ramas-orden"
+  items={[
+    { id: 'r1', label: 'Crear la rama feature/login desde Current Branch', icon: '🌿' },
+    { id: 'r2', label: 'Programar y revisar los cambios en el diff', icon: '💻' },
+    { id: 'r3', label: 'Commit to feature/login con un mensaje claro', icon: '📸' },
+    { id: 'r4', label: 'Push origin para publicar la rama', icon: '☁️' },
+    { id: 'r5', label: 'Abrir el Pull Request desde GitHub', icon: '🔀' },
+    { id: 'r6', label: 'Aprobar y pulsar Merge pull request', icon: '⑂' },
+    { id: 'r7', label: 'Volver a main y hacer Pull origin', icon: '⬇️' },
+    { id: 'r8', label: 'Borrar la rama ya fusionada', icon: '🧹' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba ramas y PRs en Desktop"
+  questions={[
+    {
+      q: '¿Cómo creas una rama en Desktop?',
+      options: ['Current Branch → New Branch', 'File → New', 'History → Branch', 'No se puede'],
+      answer: 0,
+      explanation: 'Desde el menú Current Branch creas la rama, eliges su base y Desktop se cambia a ella.',
+    },
+    {
+      q: '¿Qué herramienta ayuda a resolver conflictos con botones?',
+      options: [
+        'Fetch origin',
+        'VS Code, con Accept Current/Incoming/Both',
+        'Push origin',
+        'History',
+      ],
+      answer: 1,
+      explanation: 'Al abrir el archivo en VS Code puedes aceptar los cambios de una u otra rama con un clic.',
+    },
+    {
+      q: '¿Qué necesitas antes de abrir un PR desde Desktop?',
+      options: [
+        'Nada, se abre solo',
+        'Haber publicado (push) la rama',
+        'Borrar main',
+        'Hacer un rebase interactivo',
+      ],
+      answer: 1,
+      explanation: 'La rama debe existir en GitHub (Publish branch / push) para poder abrir el Pull Request.',
+    },
+  ]}
+/>
+
+Con esto dominas GitHub Desktop de principio a fin. Pasemos a las buenas prácticas.

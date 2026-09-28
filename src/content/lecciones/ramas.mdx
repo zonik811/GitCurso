@@ -1,0 +1,245 @@
+---
+title: Ramas (branches)
+description: Crea, cambia y gestiona ramas con branch, checkout y switch. ¿Qué es HEAD?
+---
+
+import Callout from '../../components/Callout.astro';
+import GitTerminal from '../../components/GitTerminal.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Las ramas son la función estrella de Git. Permiten que varias líneas de trabajo convivan sin interferirse: una para `main`, otra para tu nueva funcionalidad, otra para un experimento.
+
+## ¿Qué es una rama?
+
+Una rama es simplemente un **puntero móvil a un commit**. No es una copia de los archivos: es un nombre que apunta a un punto del historial. Por eso crear una rama en Git es instantáneo y barato.
+
+```text
+        main
+          │
+          ▼
+   A ──► B ──► C
+```
+
+Cuando haces commits en una rama, el puntero avanza solo.
+
+## ¿Y qué es HEAD?
+
+`HEAD` es un puntero especial que indica **dónde estás**. Normalmente apunta a la rama en la que estás trabajando (no directamente al commit).
+
+```text
+        main
+          │
+          ▼
+   A ──► B ──► C
+               ▲
+             HEAD  (estás en main, en el commit C)
+```
+
+Cuando cambias de rama, `HEAD` se mueve y tu working directory se actualiza al contenido de esa rama.
+
+## Comandos de ramas
+
+### Ver ramas
+
+```bash
+git branch              # ramas locales (* marca la actual)
+git branch -a           # incluye ramas remotas
+git branch -v           # con el último commit de cada una
+```
+
+```text
+* main
+  feature-login
+  experimento
+```
+
+### Crear una rama
+
+```bash
+git branch feature-login              # crea, pero no te mueve
+git switch -c feature-login           # crea Y te mueve (recomendado)
+git checkout -b feature-login         # forma clásica equivalente
+```
+
+### Cambiar de rama
+
+```bash
+git switch main            # forma moderna (Git 2.23+)
+git checkout main          # forma clásica
+```
+
+`checkout` hace muchas cosas (cambiar rama, restaurar archivos, ir a un commit), así que Git introdujo `switch` (para ramas) y `restore` (para archivos) para mayor claridad. Usa los nuevos.
+
+### Renombrar y borrar
+
+```bash
+git branch -m nuevo-nombre          # renombrar la rama actual
+git branch -m viejo nuevo           # renombrar otra
+git branch -d feature-login         # borrar (solo si está fusionada)
+git branch -D feature-login         # borrar a la fuerza
+```
+
+## Flujo típico de una funcionalidad
+
+```bash
+# 1. Asegúrate de partir de una base actualizada
+git switch main
+git pull
+
+# 2. Crea tu rama de trabajo
+git switch -c feature-carrito
+
+# 3. Trabaja y commitea
+echo "carrito" > carrito.js
+git add carrito.js
+git commit -m "Añade lógica del carrito"
+
+# 4. Sube la rama al remoto (para respaldo o PR)
+git push -u origin feature-carrito
+
+# 5. Cuando termines, vuelve a main y fusiona
+git switch main
+git merge feature-carrito
+```
+
+<Callout type="tip">
+  Convención de nombres para ramas: `feature/`, `fix/`, `docs/`, `hotfix/`. Ejemplo: `feature/login-social`. Facilita saber qué es cada cosa de un vistazo.
+</Callout>
+
+## Practica las ramas
+
+Esta terminal **sí entiende de ramas**. Crea un commit base y luego juega con `git branch`, `git switch` y `git branch -d`. Mira el panel **Ramas**: el punto ● marca dónde estás (HEAD).
+
+<GitTerminal title="Practica: ramas y HEAD" branches />
+
+<Callout type="info">
+  Prueba: `git init` → `git add .` → `git commit -m "Base"` → `git branch feature` → `git switch feature` → `echo "nuevo" > feature.txt` → `git add .` → `git commit -m "Trabajo en feature"` → `git switch main`. Observa que `feature.txt` **no** está en main: cada rama tiene su propia línea de trabajo.
+</Callout>
+
+## El recorrido completo de una funcionalidad
+
+Este es el flujo que vas a repetir cientos de veces. Coloca los comandos en el orden que los escribirías, de principio a fin.
+
+<DragLab
+  mode="orden"
+  title="De la rama al merge, paso a paso"
+  instruction="Ordena el flujo entero: partir de main actualizada, crear la rama, trabajar, publicarla y fusionar."
+  success="Ese es el día a día de Git, de principio a fin."
+  seed="ramas-orden"
+  items={[
+    { id: 's1', code: 'git switch main', label: 'Vuelve a la rama principal', icon: '🔙' },
+    { id: 's2', code: 'git pull', label: 'Actualízala antes de empezar', icon: '⬇️' },
+    { id: 's3', code: 'git switch -c feature-carrito', label: 'Crea la rama de trabajo y entra en ella', icon: '🌿' },
+    { id: 's4', code: 'git add carrito.js', label: 'Prepara lo que has tocado', icon: '🥘' },
+    { id: 's5', code: 'git commit -m "Añade el carrito"', label: 'Guarda la foto con su mensaje', icon: '📸' },
+    { id: 's6', code: 'git push -u origin feature-carrito', label: 'Publica la rama en el remoto', icon: '☁️' },
+    { id: 's7', code: 'git switch main', label: 'Vuelve a main para integrar el trabajo', icon: '🔙' },
+    { id: 's8', code: 'git merge feature-carrito', label: 'Incorpora la rama en main', icon: '🔀' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba las ramas"
+  questions={[
+    {
+      q: '¿Qué es una rama en Git?',
+      options: [
+        'Una copia completa de todos los archivos',
+        'Un puntero móvil a un commit',
+        'Una carpeta dentro del proyecto',
+        'Un servidor remoto',
+      ],
+      answer: 1,
+      explanation: 'Una rama es solo un nombre que apunta a un commit. Por eso crearlas es instantáneo y barato.',
+    },
+    {
+      q: '¿Qué comando crea una rama Y se cambia a ella?',
+      options: ['git branch nueva', 'git switch -c nueva', 'git checkout nueva', 'git merge nueva'],
+      answer: 1,
+      explanation: 'git switch -c (o git checkout -b) crea la rama y mueve HEAD a ella en un solo paso.',
+    },
+    {
+      q: '¿Qué indica HEAD?',
+      options: [
+        'El commit más antiguo del repo',
+        'La rama o commit en el que estás ahora mismo',
+        'El repositorio remoto principal',
+        'El último tag creado',
+      ],
+      answer: 1,
+      explanation: 'HEAD señala dónde estás: normalmente apunta a la rama actual y, a través de ella, al último commit.',
+    },
+  ]}
+/>
+
+## Cambiar de rama con cambios sin guardar
+
+Si intentas cambiar de rama con cambios sin commitear, Git te lo impedirá si hay conflicto. Opciones:
+
+```bash
+git stash                  # guarda temporalmente tus cambios
+git switch otra-rama
+git stash pop              # los recupera aquí
+```
+
+O commitea primero (aunque sea un WIP), o usa `git switch -m` para intentar llevar los cambios. El `stash` lo veremos en detalle más adelante.
+
+## Ramas como espacio de experimentación
+
+Una de las grandes ventajas: puedes probar algo arriesgado sin tocar `main`. Si funciona, fusionas; si no, borras la rama y **no queda rastro**.
+
+```bash
+git switch -c experimento-loco
+# ... haces destrozos ...
+git switch main
+git branch -D experimento-loco      # adiós, sin consecuencias
+```
+
+## Ver el gráfico de ramas
+
+```bash
+git log --oneline --graph --all --decorate
+```
+
+```text
+* 9f8e7d6 (feature-carrito) Añade descuentos
+* 4c3b2a1 Añade carrito
+| * a1b2c3d (HEAD -> main) Corrige footer
+|/
+* 3e2d1c0 Commit base
+```
+
+Ese diagrama es tu mapa del historial. Guárdalo como alias (lo veremos al final del curso).
+
+## Escenario real: una funcionalidad sin romper main
+
+Trabajas en una tienda online y te piden añadir un cupón de descuento. En lugar de tocar `main` directamente:
+
+```bash
+git switch main
+git pull
+git switch -c feature/cupon-descuento
+# ... programas el cupón, commiteas ...
+git push -u origin feature/cupon-descuento
+# abres un Pull Request
+```
+
+Si algo sale mal, `main` sigue intacto. Cuando el PR se aprueba y se fusiona, borras la rama.
+
+## Errores comunes
+
+<Callout type="warn">
+  **Cambiar de rama con cambios sin guardar.** Git te bloqueará si hay conflicto. Guarda con `git stash` (o commitea) antes de cambiar.
+</Callout>
+
+<Callout type="warn">
+  **Trabajar siempre en main.** Crea una rama por tarea; así `main` queda siempre desplegable y no arriesgas el trabajo del equipo.
+</Callout>
+
+<Callout type="danger">
+  **Borrar una rama sin fusionar.** `git branch -d` avisa, pero `-D` la borra a la fuerza y puedes perder commits. Comprueba antes con `git log` o `git branch --merged`.
+</Callout>
+
+En la próxima lección aprenderemos a **fusionar** ramas y a resolver los temidos conflictos.

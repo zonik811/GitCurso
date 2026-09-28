@@ -1,0 +1,195 @@
+---
+title: Instalación y configuración inicial
+description: Instala Git en Windows, macOS y Linux, y configura tu identidad y valores por defecto.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Vamos a dejar Git funcionando en tu máquina y configurado para que tus commits lleven tu nombre.
+
+## Instalar Git
+
+### Windows
+
+La forma más sencilla es descargar el instalador oficial desde [git-scm.com/download/win](https://git-scm.com/download/win). Durante la instalación, los valores por defecto funcionan bien; solo asegúrate de que se instale **Git Bash** (una terminal tipo Unix que usaremos en ejemplos).
+
+También puedes usar un gestor de paquetes:
+
+```powershell
+winget install --id Git.Git -e --source winget
+```
+
+### macOS
+
+La opción más directa es instalar las herramientas de línea de comandos de Apple:
+
+```bash
+xcode-select --install
+```
+
+O si usas [Homebrew](https://brew.sh):
+
+```bash
+brew install git
+```
+
+### Linux
+
+**Debian / Ubuntu:**
+
+```bash
+sudo apt update
+sudo apt install git
+```
+
+**Fedora:**
+
+```bash
+sudo dnf install git
+```
+
+**Arch:**
+
+```bash
+sudo pacman -S git
+```
+
+## Verifica la instalación
+
+Abre una terminal (Git Bash en Windows) y comprueba la versión:
+
+```bash
+git --version
+```
+
+Deberías ver algo como:
+
+```text
+git version 2.45.1
+```
+
+<Callout type="tip">
+  Si el comando responde con un número de versión, Git está instalado. Si dice "command not found", cierra y reabre la terminal o revisa la instalación.
+</Callout>
+
+## Configura tu identidad (obligatorio)
+
+Git firma cada commit con tu nombre y correo. Si no lo configuras, Git se quejará al hacer tu primer commit. Estos datos aparecerán en el historial de cada proyecto:
+
+```bash
+git config --global user.name "Tu Nombre"
+git config --global user.email "tu@email.com"
+```
+
+> Usa el mismo correo que usarás en GitHub. Así tus commits se vincularán a tu cuenta automáticamente.
+
+Comprueba que quedó bien:
+
+```bash
+git config --global --list
+```
+
+```text
+user.name=Tu Nombre
+user.email=tu@email.com
+```
+
+## Configuraciones recomendadas
+
+Estos ajustes mejoran la experiencia y evitan sorpresas:
+
+```bash
+# Rama inicial llamada "main" (estándar actual) en vez de "master"
+git config --global init.defaultBranch main
+
+# Evita conflictos de fin de línea entre Windows/Linux/macOS
+git config --global core.autocrlf input   # en macOS/Linux
+git config --global core.autocrlf true    # en Windows
+
+# Colores en la salida de la terminal
+git config --global color.ui auto
+
+# Tu editor preferido para mensajes de commit
+git config --global core.editor "code --wait"   # VS Code
+```
+
+## Niveles de configuración
+
+Git lee la configuración en tres niveles, del más específico al más general:
+
+| Nivel | Flag | Dónde se guarda | Alcance |
+| --- | --- | --- | --- |
+| Local | `--local` | `.git/config` | Solo el repo actual |
+| Global | `--global` | `~/.gitconfig` | Todos tus repos |
+| Sistema | `--system` | Archivo del sistema | Todos los usuarios |
+
+El nivel más específico gana. Por eso puedes tener un nombre global y sobrescribirlo en un proyecto concreto:
+
+```bash
+cd mi-proyecto
+git config user.email "correo-del-trabajo@empresa.com"
+```
+
+## Ayuda integrada
+
+Git trae su propio manual. Si olvidas un comando:
+
+```bash
+git help config
+git config --help
+git help -a        # lista todos los comandos
+```
+
+## Ordena la puesta en marcha
+
+These six steps are the ones you run on a brand new machine. Drag them into the order you would actually type them.
+
+<DragLab
+  mode="orden"
+  title="Deja Git listo en 6 pasos"
+  instruction="Coloca los comandos en el orden correcto. Si el orden es el adecuado, los números quedarán en verde al comprobar."
+  success="Entorno listo. A partir de aquí todos los comandos de la lección funcionan."
+  seed="instalacion-orden"
+  items={[
+    { id: 'ver', code: 'git --version', label: 'Comprueba que Git está instalado', icon: '🩺' },
+    { id: 'name', code: 'git config --global user.name', label: 'Tu nombre, entre comillas: aparecerá en cada commit', icon: '👤' },
+    { id: 'mail', code: 'git config --global user.email', label: 'Tu correo: con él Git firma lo que escribes', icon: '✉️' },
+    { id: 'branch', code: 'git config --global init.defaultBranch main', label: 'Los repositorios nuevos nacen en main', icon: '🌿' },
+    { id: 'rebase', code: 'git config --global pull.rebase true', label: 'Los pull rebasan en vez de crear un commit de merge', icon: '🔀' },
+    { id: 'init', code: 'git init', label: 'Activa el control de versiones en tu proyecto', icon: '🚀' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba la instalación y configuración"
+  questions={[
+    {
+      q: '¿Qué comando comprueba si Git está instalado?',
+      options: ['git install', 'git --version', 'git status', 'git help'],
+      answer: 1,
+      explanation: 'git --version muestra la versión instalada; si responde, Git está disponible en tu PATH.',
+    },
+    {
+      q: '¿Qué configuración es obligatoria antes de tu primer commit?',
+      options: [
+        'El color de la terminal',
+        'Tu nombre y correo (user.name y user.email)',
+        'La rama principal',
+        'El editor de texto',
+      ],
+      answer: 1,
+      explanation: 'Git firma cada commit con tu nombre y correo; sin ellos no te dejará commitear.',
+    },
+    {
+      q: '¿Qué flag guarda la configuración para todos tus repositorios?',
+      options: ['--local', '--global', '--system', '--all'],
+      answer: 1,
+      explanation: '--global escribe en ~/.gitconfig y aplica a todos tus repos. --local solo al repo actual.',
+    },
+  ]}
+/>
+
+Con esto ya tienes Git listo. En la próxima lección entenderemos el flujo de trabajo y las tres áreas de Git.

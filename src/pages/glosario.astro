@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { glossary } from '../data/glossary';
+---
+
+<BaseLayout
+  title="Glosario"
+  description="Glosario de términos de Git, GitHub y control de versiones."
+  crumb="📖 Glosario"
+>
+  <div class="page-head">
+    <h1>📖 Glosario</h1>
+    <p>Todos los términos del curso, de commit a Pull Request. Filtra para encontrar el que buscas.</p>
+  </div>
+
+  <input
+    class="glossary-filter"
+    id="glossaryFilter"
+    type="search"
+    placeholder="Filtrar términos…"
+    aria-label="Filtrar términos del glosario"
+    autocomplete="off"
+  />
+
+  <dl id="glossaryList">
+    {
+      glossary.map((t) => (
+        <div class="glossary-term" data-term={t.term} data-def={t.def}>
+          <dt>{t.term}</dt>
+          <dd>{t.def}</dd>
+        </div>
+      ))
+    }
+  </dl>
+  <p class="glossary-empty" id="glossaryEmpty" style="display:none">Sin resultados.</p>
+</BaseLayout>
+
+<script>
+  const filter = document.getElementById('glossaryFilter') as HTMLInputElement | null;
+  const list = document.getElementById('glossaryList');
+  const empty = document.getElementById('glossaryEmpty');
+
+  if (filter && list) {
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const terms = Array.from(list.querySelectorAll<HTMLElement>('.glossary-term'));
+
+    filter.addEventListener('input', () => {
+      const q = norm(filter.value.trim());
+      let visible = 0;
+      terms.forEach((el) => {
+        const text = norm((el.dataset.term || '') + ' ' + (el.dataset.def || ''));
+        const show = q === '' || text.includes(q);
+        el.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      if (empty) empty.style.display = visible ? 'none' : '';
+    });
+  }
+</script>

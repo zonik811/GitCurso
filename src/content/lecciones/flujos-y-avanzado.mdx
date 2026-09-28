@@ -1,0 +1,269 @@
+---
+title: Flujos de trabajo y comandos avanzados
+description: Git Flow, trunk-based development, GitHub Flow, cherry-pick, bisect y alias.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Última lección. Veremos cómo trabajan los equipos reales y algunos comandos que te harán la vida más fácil.
+
+## Flujos de trabajo (workflows)
+
+Un **workflow** es un acuerdo de equipo sobre cómo usar ramas y cómo integrar cambios.
+
+### GitHub Flow (el más simple)
+
+Ideal para equipos que despliegan continuamente.
+
+```text
+main  ●─────────────●──────────────●───
+       \           / \            /
+        ●──●──●──●    ●──●──●──●
+      feature/a     feature/b
+```
+
+1. `main` siempre es desplegable.
+2. Crea una rama por feature/fix.
+3. Abre un Pull Request.
+4. Revisa, prueba y fusiona a `main`.
+5. Despliega.
+
+**Recomendado para la mayoría de proyectos y principiantes.**
+
+### Git Flow (más estructurado)
+
+Para proyectos con releases versionadas. Usa varias ramas de larga vida:
+
+| Rama | Propósito |
+| --- | --- |
+| `main` | Solo versiones publicadas (producción). |
+| `develop` | Integración de desarrollo. |
+| `feature/*` | Funcionalidades (salen de `develop`). |
+| `release/*` | Preparación de una versión. |
+| `hotfix/*` | Arreglos urgentes en producción. |
+
+Potente pero pesado. Úsalo si necesitas releases planificadas.
+
+### Trunk-Based Development
+
+Todos commitean frecuentemente a `main` (el "tronco"), con ramas muy cortas (horas, no días) o directamente a `main` con *feature flags*.
+
+- Máxima integración continua.
+- Requiere buenos tests automatizados y CI.
+- Usado por equipos de alto rendimiento.
+
+### Comparación
+
+| | GitHub Flow | Git Flow | Trunk-Based |
+| --- | --- | --- | --- |
+| Complejidad | Baja | Alta | Media |
+| Ramas de larga vida | No | Sí | No |
+| Releases | Continuas | Planificadas | Continuas |
+| Ideal para | Web, apps | Software con versiones | Equipos maduros |
+
+## Comandos avanzados
+
+### `git cherry-pick` — traer un commit concreto
+
+Aplica un commit específico de otra rama a la actual, sin fusionar todo:
+
+```bash
+git cherry-pick a1b2c3d
+git cherry-pick a1b2c3d..f6e5d4c    # un rango
+```
+
+Útil para llevar un hotfix a varias ramas de release.
+
+```bash
+# Si hay conflicto
+git add archivo
+git cherry-pick --continue
+git cherry-pick --abort
+```
+
+### `git bisect` — encontrar el commit que rompió algo
+
+Búsqueda binaria en el historial: marca un commit bueno y uno malo, y Git te va preguntando.
+
+```bash
+git bisect start
+git bisect bad                 # el actual está roto
+git bisect good v1.0.0         # esta versión funcionaba
+
+# Git hace checkout a un commit intermedio. Pruebas y respondes:
+git bisect good                # o:
+git bisect bad
+
+# ... repite hasta que Git identifique el commit culpable ...
+git bisect reset               # termina y vuelve a donde estabas
+```
+
+Con ~1000 commits, encuentra el culpable en unas 10 comprobaciones.
+
+### `git blame` — quién escribió cada línea
+
+```bash
+git blame archivo.js
+git blame -L 10,20 archivo.js     # solo las líneas 10-20
+```
+
+Muestra autor, fecha y hash de cada línea. Útil para entender el por qué de un código (con cuidado: no para señalar culpables).
+
+### `git grep` — buscar en el código versionado
+
+```bash
+git grep "TODO"
+git grep -n "function init"
+git grep "patrón" v1.0.0          # buscar en un tag/commit
+```
+
+### `git worktree` — varios checkouts a la vez
+
+Trabaja en dos ramas en carpetas distintas sin clonar dos veces:
+
+```bash
+git worktree add ../hotfix hotfix/urgente
+git worktree list
+git worktree remove ../hotfix
+```
+
+## Alias: tus propios atajos
+
+Configura atajos para los comandos que más usas:
+
+```bash
+git config --global alias.st status
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.lg "log --oneline --graph --all --decorate"
+git config --global alias.unstage "restore --staged"
+git config --global alias.last "log -1 HEAD"
+```
+
+Ahora `git lg` muestra el gráfico bonito:
+
+```bash
+git lg
+```
+
+```text
+* 9f8e7d6 (feature/x) Añade descuentos
+* 4c3b2a1 Añade carrito
+| * a1b2c3d (HEAD -> main) Corrige footer
+|/
+* 3e2d1c0 Commit base
+```
+
+## Limpieza y mantenimiento
+
+```bash
+git gc                        # recolecta basura y optimiza el repo
+git prune                     # elimina objetos inalcanzables
+git fetch --prune             # borra ramas remotas eliminadas
+git remote prune origin
+```
+
+Ver el tamaño del repo:
+
+```bash
+git count-objects -vH
+```
+
+## Comandos "de rescate"
+
+| Problema | Comando |
+| --- | --- |
+| "Borré un commit con reset --hard" | `git reflog` → `git reset --hard <hash>` |
+| "No sé qué cambió" | `git log -p` / `git diff` |
+| "El push fue rechazado" | `git pull --rebase` → `git push` |
+| "Conflictos por todos lados" | `git merge --abort` y vuelve a empezar |
+| "Subí un archivo por error" | `git rm --cached archivo` + `.gitignore` |
+| "Necesito deshacer un commit publicado" | `git revert <hash>` |
+
+## Recursos para seguir aprendiendo
+
+- **Documentación oficial**: [git-scm.com/doc](https://git-scm.com/doc)
+- **Libro gratuito "Pro Git"** (en español): [git-scm.com/book/es/v2](https://git-scm.com/book/es/v2)
+- **GitHub Docs**: [docs.github.com](https://docs.github.com)
+- **GitHub Skills**: cursos interactivos oficiales.
+- Practica jugando: [learngitbranching.js.org](https://learngitbranching.js.org/?locale=es_ES)
+
+## Cierre del curso
+
+Has recorrido el camino completo:
+
+```text
+Fundamentos → Git esencial → Ramas → GitHub → GitHub Desktop → Buenas prácticas
+```
+
+Ya sabes crear repositorios, commitear, ramificar, fusionar, resolver conflictos, colaborar con Pull Requests y usar GitHub Desktop. Lo demás es práctica.
+
+## El grafo de Git Flow
+
+Git Flow organiza el trabajo en ramas con nombres y reglas fijas. Une cada commit con el que le sigue para construir su grafo.
+
+<DragLab
+  mode="grafo"
+  nodeW={132}
+  nodeH={58}
+  title="Construye el grafo de Git Flow"
+  instruction="Siete pasos: main abre el proyecto, develop nace de main, dos features salen de develop y vuelven a él, y desde develop sale el release que aterriza en main. Une cada nodo con su sucesor."
+  success="Ese es Git Flow completo: cada rama tiene su función y su regla de salida."
+  seed="gitflow-grafo"
+  nodes={[
+    { id: 'A', label: 'A', sub: 'main · inicio', icon: '●', x: 75, y: 0 },
+    { id: 'D1', label: 'D1', sub: 'develop', icon: '●', x: 75, y: 100 },
+    { id: 'F1', label: 'F1', sub: 'feature/login', icon: '●', x: 0, y: 200 },
+    { id: 'F2', label: 'F2', sub: 'feature/tests', icon: '●', x: 150, y: 200 },
+    { id: 'D2', label: 'D2', sub: 'develop · merge', icon: '⑂', x: 75, y: 300 },
+    { id: 'R1', label: 'R1', sub: 'release · v1.2.0', icon: '⑂', x: 75, y: 400 },
+    { id: 'M1', label: 'M1', sub: 'main · publicada', icon: '●', x: 75, y: 500 },
+  ]}
+  edges={[
+    ['A', 'D1'],
+    ['D1', 'F1'],
+    ['D1', 'F2'],
+    ['F1', 'D2'],
+    ['F2', 'D2'],
+    ['D2', 'R1'],
+    ['R1', 'M1'],
+  ]}
+/>
+
+<Quiz
+  title="Examen final del curso"
+  questions={[
+    {
+      q: '¿Qué flujo de trabajo es el más simple y recomendado para empezar?',
+      options: ['Git Flow', 'GitHub Flow', 'Trunk-Based', 'Centralizado'],
+      answer: 1,
+      explanation: 'GitHub Flow: main siempre desplegable, una rama por cambio y Pull Request. Simple y efectivo.',
+    },
+    {
+      q: '¿Qué hace `git cherry-pick <hash>`?',
+      options: [
+        'Fusiona dos ramas completas',
+        'Aplica un commit concreto de otra rama a la actual',
+        'Borra un commit del historial',
+        'Crea una etiqueta',
+      ],
+      answer: 1,
+      explanation: 'cherry-pick trae un commit específico a tu rama, útil para llevar un hotfix a varias ramas.',
+    },
+    {
+      q: '¿Qué comando hace búsqueda binaria para encontrar el commit que rompió algo?',
+      options: ['git blame', 'git bisect', 'git grep', 'git reflog'],
+      answer: 1,
+      explanation: 'git bisect marca commits buenos y malos y va dividiendo el historial a la mitad hasta hallar el culpable.',
+    },
+  ]}
+/>
+
+<Callout type="tip">
+  **Tu siguiente paso:** crea un repositorio, súbelo a GitHub y contribuye a un proyecto open source con un issue etiquetado `good first issue`. La mejor forma de consolidar es usándolo de verdad.
+</Callout>
+
+¡Felicidades por terminar el curso!

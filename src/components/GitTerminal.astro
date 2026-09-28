@@ -1,0 +1,688 @@
+---
+interface Props {
+  title?: string;
+  branches?: boolean;
+}
+
+const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
+---
+
+<div class="gterm" data-gterm data-branches={branches ? '1' : '0'}>
+  <div class="gterm-head">
+    <span class="gterm-dots"><i></i><i></i><i></i></span>
+    <span class="gterm-title">{title}</span>
+    <span class="gterm-tag">práctica</span>
+  </div>
+
+  <div class="gterm-body">
+    <div class="gterm-screen" data-screen>
+      <div class="gterm-out" data-out></div>
+      <div class="gterm-inputline">
+        <span class="gterm-prompt" data-prompt>~/proyecto (main) $</span>
+        <input
+          class="gterm-input"
+          data-input
+          type="text"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label="Escribe un comando de Git"
+          placeholder="escribe un comando y pulsa Enter…"
+        />
+      </div>
+    </div>
+
+    <div class="gterm-panels">
+      <div class="gpanel">
+        <div class="gpanel-title">📁 Directorio de trabajo</div>
+        <ul class="gpanel-list" data-work></ul>
+      </div>
+      <div class="gpanel">
+        <div class="gpanel-title">📦 Staging (índice)</div>
+        <ul class="gpanel-list" data-index></ul>
+      </div>
+      <div class="gpanel">
+        <div class="gpanel-title">🌿 Ramas</div>
+        <ul class="gpanel-list" data-branches></ul>
+      </div>
+      <div class="gpanel">
+        <div class="gpanel-title">🗂️ Commits</div>
+        <ul class="gpanel-list" data-commits></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="gterm-chips" data-chips>
+    <span class="gterm-chips-label">Prueba:</span>
+    <button type="button" data-cmd="git init">git init</button>
+    <button type="button" data-cmd="git status">git status</button>
+    <button type="button" data-cmd="git add .">git add .</button>
+    <button type="button" data-cmd='git commit -m "Primer commit"'>git commit</button>
+    <button type="button" data-cmd="git log --oneline">git log</button>
+    <button type="button" data-cmd='echo "Hola mundo" > nota.txt'>crear archivo</button>
+    {branches && (
+      <>
+        <button type="button" data-cmd="git branch feature">crear rama</button>
+        <button type="button" data-cmd="git switch feature">switch feature</button>
+        <button type="button" data-cmd="git switch main">switch main</button>
+        <button type="button" data-cmd="git merge feature">merge</button>
+      </>
+    )}
+    <button type="button" data-cmd="help">help</button>
+  </div>
+</div>
+
+<script>
+  interface Commit {
+    id: string;
+    msg: string;
+    parents: string[];
+    snapshot: Record<string, string>;
+  }
+
+  function initGitTerminal(root: HTMLElement) {
+    const out = root.querySelector('[data-out]') as HTMLElement;
+    const input = root.querySelector('[data-input]') as HTMLInputElement;
+    const promptEl = root.querySelector('[data-prompt]') as HTMLElement;
+    const workEl = root.querySelector('[data-work]') as HTMLElement;
+    const indexEl = root.querySelector('[data-index]') as HTMLElement;
+    const branchesEl = root.querySelector('[data-branches]') as HTMLElement;
+    const commitsEl = root.querySelector('[data-commits]') as HTMLElement;
+    const showBranches = root.dataset.branches === '1';
+
+    const S = {
+      init: false,
+      current: 'main',
+      branches: { main: null } as Record<string, string | null>,
+      commits: [] as Commit[],
+      work: { 'README.md': '# Mi proyecto\n' } as Record<string, string>,
+      index: {} as Record<string, string>,
+      hist: [] as string[],
+      histPos: 0,
+    };
+
+    const esc = (s: unknown) =>
+      String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+    const names = (o: Record<string, unknown>) => Object.keys(o).sort();
+    const commitById = (id: string | null) => (id ? S.commits.find((c) => c.id === id) : undefined);
+    const curId = () => S.branches[S.current] ?? null;
+    const snap = (id: string | null): Record<string, string> => {
+      const c = commitById(id);
+      return c ? { ...c.snapshot } : {};
+    };
+    const base = () => snap(curId());
+    const promptText = () => `~/proyecto (${S.current}) $`;
+
+    function print(text = '', cls = '') {
+      const d = document.createElement('div');
+      d.className = 'gterm-row' + (cls ? ' ' + cls : '');
+      if (text === '') d.innerHTML = '&nbsp;';
+      else d.textContent = text;
+      out.appendChild(d);
+      out.scrollTop = out.scrollHeight;
+    }
+    function printHtml(html: string, cls = '') {
+      const d = document.createElement('div');
+      d.className = 'gterm-row' + (cls ? ' ' + cls : '');
+      d.innerHTML = html;
+      out.appendChild(d);
+      out.scrollTop = out.scrollHeight;
+    }
+    function printMulti(text: string, cls = '') {
+      text.split('\n').forEach((l) => print(l, cls));
+    }
+
+    const shortId = () => {
+      const c = '0123456789abcdef';
+      let s = '';
+      for (let i = 0; i < 7; i++) s += c[Math.floor(Math.random() * 16)];
+      return s;
+    };
+
+    function tokenize(str: string) {
+      const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+      const res: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(str))) res.push(m[1] ?? m[2] ?? m[3]);
+      return res;
+    }
+
+    function isAncestor(a: string | null, b: string | null): boolean {
+      if (a === null) return true;
+      const stack: (string | null)[] = [b];
+      const seen = new Set<string>();
+      while (stack.length) {
+        const id = stack.pop();
+        if (!id) continue;
+        if (id === a) return true;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const c = commitById(id);
+        if (c) stack.push(...c.parents);
+      }
+      return false;
+    }
+
+    function branchesOn(id: string | null) {
+      return Object.keys(S.branches)
+        .filter((b) => S.branches[b] === id)
+        .sort((a, b) => (a === S.current ? -1 : b === S.current ? 1 : a.localeCompare(b)));
+    }
+
+    function fileStatus() {
+      const b = base();
+      const all = new Set([...names(S.work), ...names(S.index), ...names(b)]);
+      const res: { name: string; status: string }[] = [];
+      for (const n of [...all].sort()) {
+        const inW = n in S.work, inI = n in S.index, inH = n in b;
+        let st: string | null = null;
+        if (inI && S.index[n] !== (inH ? b[n] : undefined)) st = inH ? 'modified' : 'new';
+        else if (inW && !inI) {
+          if (!inH) st = 'untracked';
+          else if (S.work[n] !== b[n]) st = 'modified';
+        } else if (inW && inI && S.work[n] !== S.index[n]) st = 'modified';
+        else if (inH && !inW) st = 'deleted';
+        if (st) res.push({ name: n, status: st });
+      }
+      return res;
+    }
+
+    const hasChanges = () => fileStatus().length > 0;
+
+    function renderStatus() {
+      print(`On branch ${S.current}`);
+      if (curId() === null) print('No commits yet');
+      const b = base();
+      const staged: string[] = [];
+      const unstaged: string[] = [];
+      const untracked: string[] = [];
+      const all = new Set([...names(S.work), ...names(S.index), ...names(b)]);
+      for (const n of [...all].sort()) {
+        const inW = n in S.work, inI = n in S.index, inH = n in b;
+        if (inI && S.index[n] !== (inH ? b[n] : undefined)) {
+          staged.push(`${inH ? 'modified' : 'new file'}: ${n}`);
+        } else if (inW && !inI) {
+          if (!inH) untracked.push(n);
+          else if (S.work[n] !== b[n]) unstaged.push(`modified:   ${n}`);
+        } else if (inW && inI && S.work[n] !== S.index[n]) {
+          unstaged.push(`modified:   ${n}`);
+        } else if (inH && !inW) {
+          unstaged.push(`deleted:    ${n}`);
+        }
+      }
+      print('');
+      if (staged.length) {
+        print('Changes to be committed:');
+        print('  (use "git restore --staged <file>..." to unstage)');
+        staged.forEach((s) => print('        ' + s));
+        print('');
+      }
+      if (unstaged.length) {
+        print('Changes not staged for commit:');
+        print('  (use "git add <file>..." to update what will be committed)');
+        unstaged.forEach((s) => print('        ' + s));
+        print('');
+      }
+      if (untracked.length) {
+        print('Untracked files:');
+        print('  (use "git add <file>..." to include in what will be committed)');
+        untracked.forEach((s) => print('        ' + s));
+        print('');
+      }
+      if (!staged.length && !unstaged.length && !untracked.length) {
+        print(
+          curId() !== null
+            ? 'nothing to commit, working tree clean'
+            : 'nothing to commit (create/copy files and use "git add" to track)',
+        );
+      }
+    }
+
+    function renderDiff() {
+      let any = false;
+      const b = base();
+      const all = new Set([...names(S.work), ...names(S.index)]);
+      for (const n of [...all].sort()) {
+        const ref = n in S.index ? S.index[n] : b[n];
+        if (ref === undefined) continue;
+        const cur = n in S.work ? S.work[n] : undefined;
+        if (cur === ref) continue;
+        any = true;
+        print(`diff --git a/${n} b/${n}`);
+        print(`--- a/${n}`);
+        print(`+++ b/${n}`);
+        ref.split('\n').forEach((l) => print('- ' + l, 'gterm-del'));
+        (cur ?? '').split('\n').forEach((l) => print('+ ' + l, 'gterm-add'));
+      }
+      if (!any) print('(sin cambios sin preparar)');
+    }
+
+    function renderLog(oneline: boolean, graph: boolean) {
+      if (curId() === null) {
+        print(`fatal: your current branch '${S.current}' does not have any commits yet`);
+        return;
+      }
+      let id: string | null = curId();
+      let first = true;
+      while (id) {
+        const c = commitById(id);
+        if (!c) break;
+        const refs = branchesOn(id);
+        const refStr = refs.length
+          ? ` (${refs.map((r) => (r === S.current ? 'HEAD -> ' + r : r)).join(', ')})`
+          : '';
+        const prefix = graph ? '* ' : '';
+        if (oneline) print(`${prefix}${c.id}${refStr} ${c.msg}`, first ? 'gterm-log-head' : '');
+        else {
+          print(`${prefix}commit ${c.id}${refStr}`);
+          print('Author: Tú <tu@email.com>');
+          print('Date:   hoy');
+          print('');
+          print('    ' + c.msg);
+          print('');
+        }
+        first = false;
+        id = c.parents[0] ?? null;
+      }
+    }
+
+    function renderPanels() {
+      const fs = fileStatus();
+      const badge: Record<string, [string, string]> = {
+        untracked: ['?', 'sin rastrear'],
+        modified: ['M', 'modificado'],
+        new: ['A', 'nuevo'],
+        deleted: ['D', 'borrado'],
+      };
+
+      workEl.innerHTML = '';
+      const wn = names(S.work);
+      if (!wn.length) workEl.innerHTML = '<li class="gempty">vacío</li>';
+      wn.forEach((n) => {
+        const st = fs.find((f) => f.name === n);
+        const b = st ? badge[st.status] : null;
+        const li = document.createElement('li');
+        li.innerHTML =
+          `<span class="gfile">${esc(n)}</span>` +
+          (b ? `<span class="gbadge ${st!.status}" title="${b[1]}">${b[0]}</span>` : '');
+        workEl.appendChild(li);
+      });
+
+      indexEl.innerHTML = '';
+      const inx = names(S.index);
+      const b = base();
+      if (!inx.length) indexEl.innerHTML = '<li class="gempty">vacío</li>';
+      inx.forEach((n) => {
+        const isNew = !(n in b);
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="gfile">${esc(n)}</span><span class="gbadge ${isNew ? 'new' : 'modified'}">${isNew ? 'A' : 'M'}</span>`;
+        indexEl.appendChild(li);
+      });
+
+      branchesEl.innerHTML = '';
+      names(S.branches).forEach((name) => {
+        const isCur = name === S.current;
+        const target = S.branches[name];
+        const li = document.createElement('li');
+        li.innerHTML =
+          `<span class="gbranch ${isCur ? 'cur' : ''}">${isCur ? '●' : '○'} ${esc(name)}</span>` +
+          `<span class="ghash">${target ?? '—'}</span>` +
+          (isCur ? '<span class="gbadge head">HEAD</span>' : '');
+        branchesEl.appendChild(li);
+      });
+
+      commitsEl.innerHTML = '';
+      if (!S.commits.length) commitsEl.innerHTML = '<li class="gempty">sin commits</li>';
+      [...S.commits].reverse().forEach((c) => {
+        const refs = branchesOn(c.id);
+        const li = document.createElement('li');
+        li.innerHTML =
+          `<span class="ghash">${c.id}</span>` +
+          `<span class="gmsg">${esc(c.msg)}</span>` +
+          (refs.length
+            ? refs
+                .map((r) => `<span class="gbadge branch${r === S.current ? ' cur' : ''}">${esc(r)}</span>`)
+                .join('')
+            : '');
+        commitsEl.appendChild(li);
+      });
+    }
+
+    function help() {
+      print('Comandos disponibles:');
+      print('');
+      print('  echo "texto" > archivo    crea o sobrescribe un archivo');
+      print('  echo "texto" >> archivo   añade texto al final');
+      print('  ls / cat / rm / clear     utilidades de archivos');
+      print('');
+      print('  git init                  crea el repositorio');
+      print('  git status                muestra el estado');
+      print('  git add <archivo|.|-A>    prepara cambios');
+      print('  git commit -m "mensaje"   guarda un commit');
+      print('  git log [--oneline]       muestra el historial');
+      print('  git diff                  cambios sin preparar');
+      print('  git restore <archivo>     descarta cambios del archivo');
+      print('  git restore --staged <f>  saca del staging');
+      if (showBranches) {
+        print('');
+        print('  git branch                lista las ramas');
+        print('  git branch <nombre>       crea una rama');
+        print('  git switch -c <nombre>    crea y cambia a una rama');
+        print('  git switch <nombre>       cambia de rama');
+        print('  git merge <nombre>        fusiona una rama en la actual');
+        print('  git branch -d <nombre>    borra una rama');
+      }
+    }
+
+    function updatePrompt() {
+      promptEl.textContent = promptText();
+    }
+
+    function doSwitch(name: string, create: boolean) {
+      if (create) {
+        if (name in S.branches) {
+          print(`fatal: a branch named '${name}' already exists`);
+          return;
+        }
+        S.branches[name] = curId();
+        S.current = name;
+        print(`Switched to a new branch '${name}'`);
+        updatePrompt();
+        return;
+      }
+      if (!(name in S.branches)) {
+        print(`fatal: invalid reference: ${name}`);
+        return;
+      }
+      const dirty = hasChanges() || names(S.index).length > 0;
+      S.current = name;
+      S.work = snap(curId());
+      S.index = {};
+      print(`Switched to branch '${name}'`);
+      if (dirty) print('# (en Git real te avisaría de los cambios sin commitear)', 'gterm-dim');
+      updatePrompt();
+    }
+
+    function doMerge(name: string | undefined) {
+      if (!name) {
+        print('fatal: No remote for the current branch.');
+        return;
+      }
+      if (!(name in S.branches)) {
+        print(`merge: ${name} - not something we can merge`);
+        return;
+      }
+      const target = S.branches[name];
+      const cur = curId();
+      if (target === cur || target === null) {
+        print('Already up to date.');
+        return;
+      }
+      if (isAncestor(cur, target)) {
+        S.branches[S.current] = target;
+        S.work = snap(target);
+        S.index = {};
+        print(`Updating ${cur ?? '0000000'}..${target}`);
+        print('Fast-forward');
+        return;
+      }
+      if (isAncestor(target, cur)) {
+        print('Already up to date.');
+        return;
+      }
+      const merged = { ...snap(cur), ...snap(target) };
+      const id = shortId();
+      S.commits.push({ id, msg: `Merge branch '${name}'`, parents: [cur, target], snapshot: merged });
+      S.branches[S.current] = id;
+      S.work = { ...merged };
+      S.index = {};
+      print(`Merge made by the 'ort' strategy.`);
+    }
+
+    function run(rawInput: string) {
+      const raw = rawInput.trim();
+      printHtml(`<span class="gterm-echo">${esc(promptText())}</span> ${esc(raw)}`);
+      if (!raw) return;
+
+      S.hist.push(raw);
+      S.histPos = S.hist.length;
+
+      const t = tokenize(raw);
+      const cmd = t[0];
+
+      if (cmd === 'clear') {
+        out.innerHTML = '';
+        return;
+      }
+      if (cmd === 'help') {
+        help();
+        renderPanels();
+        return;
+      }
+      if (cmd === 'ls') {
+        const n = names(S.work);
+        print(n.length ? n.join('    ') : '');
+        renderPanels();
+        return;
+      }
+      if (cmd === 'cat') {
+        const f = t[1];
+        if (f && f in S.work) printMulti(S.work[f].replace(/\n$/, ''));
+        else print(`cat: ${f ?? ''}: No such file or directory`);
+        renderPanels();
+        return;
+      }
+      if (cmd === 'rm') {
+        const f = t[1];
+        if (f && f in S.work) {
+          delete S.work[f];
+          print(`# archivo "${f}" eliminado del directorio de trabajo`, 'gterm-dim');
+        } else print(`rm: cannot remove '${f ?? ''}': No such file or directory`);
+        renderPanels();
+        return;
+      }
+      if (cmd === 'echo') {
+        const redir = t.findIndex((x) => x === '>' || x === '>>');
+        if (redir === -1) {
+          print(t.slice(1).join(' '));
+          renderPanels();
+          return;
+        }
+        const text = t.slice(1, redir).join(' ');
+        const file = t[redir + 1];
+        const append = t[redir] === '>>';
+        if (!file) {
+          print('bash: syntax error near unexpected token `newline`');
+          renderPanels();
+          return;
+        }
+        S.work[file] = (append && S.work[file] ? S.work[file] : '') + text + '\n';
+        print(`# ${append ? 'añadido a' : 'escrito en'} "${file}"`, 'gterm-dim');
+        renderPanels();
+        return;
+      }
+      if (cmd === 'git') {
+        const sub = t[1];
+
+        if (sub === '--version') {
+          print('git version 2.45.1');
+          return;
+        }
+        if (sub === 'init') {
+          const again = S.init;
+          S.init = true;
+          print(
+            again
+              ? 'Reinitialized existing Git repository in ~/proyecto/.git/'
+              : 'Initialized empty Git repository in ~/proyecto/.git/',
+          );
+          renderPanels();
+          return;
+        }
+        if (!S.init) {
+          print('fatal: not a git repository (or any of the parent directories): .git');
+          renderPanels();
+          return;
+        }
+
+        if (sub === 'status') {
+          renderStatus();
+        } else if (sub === 'add') {
+          const args = t.slice(2);
+          if (!args.length) {
+            print('Nothing specified, nothing added.');
+            print("hint: Maybe you wanted to say 'git add .'?");
+          } else if (args[0] === '.' || args[0] === '-A' || args[0] === '--all') {
+            names(S.work).forEach((n) => (S.index[n] = S.work[n]));
+            names(S.index).forEach((n) => {
+              if (!(n in S.work)) delete S.index[n];
+            });
+          } else {
+            const f = args[0];
+            if (f in S.work) S.index[f] = S.work[f];
+            else print(`fatal: pathspec '${f}' did not match any files`);
+          }
+        } else if (sub === 'commit') {
+          const mi = t.indexOf('-m');
+          const msg = mi !== -1 ? t[mi + 1] : undefined;
+          if (!names(S.index).length) {
+            print(
+              hasChanges()
+                ? 'no changes added to commit (use "git add" and/or "git commit -a")'
+                : 'nothing to commit, working tree clean',
+            );
+          } else if (!msg) {
+            print('Aborting commit due to empty commit message.');
+          } else {
+            const prev = base();
+            const snapshot = { ...S.index };
+            const id = shortId();
+            const parent = curId();
+            S.commits.push({ id, msg, parents: parent ? [parent] : [], snapshot });
+            S.branches[S.current] = id;
+            S.index = {};
+            const changed = names(snapshot).filter((n) => snapshot[n] !== prev[n]).length;
+            const root = parent === null;
+            print(`[${S.current}${root ? ' (root-commit)' : ''} ${id}] ${msg}`);
+            print(` ${changed} file${changed === 1 ? '' : 's'} changed`);
+          }
+        } else if (sub === 'log') {
+          renderLog(t.includes('--oneline'), t.includes('--graph'));
+        } else if (sub === 'diff') {
+          renderDiff();
+        } else if (sub === 'restore') {
+          if (t[2] === '--staged') {
+            const f = t[3];
+            if (f && f in S.index) {
+              delete S.index[f];
+              print(`# "${f}" sacado del staging`, 'gterm-dim');
+            } else print(`error: pathspec '${f ?? ''}' did not match any file(s) known to git`);
+          } else {
+            const f = t[2];
+            const b = base();
+            if (f && f in S.index) {
+              S.work[f] = S.index[f];
+              print(`# cambios de "${f}" descartados`, 'gterm-dim');
+            } else if (f && f in b) {
+              S.work[f] = b[f];
+              print(`# "${f}" restaurado desde el último commit`, 'gterm-dim');
+            } else print(`error: pathspec '${f ?? ''}' did not match any file(s) known to git`);
+          }
+        } else if (sub === 'branch') {
+          if (t[2] === '-d' || t[2] === '-D') {
+            const name = t[3];
+            if (!name) print('fatal: branch name required');
+            else if (name === S.current) print(`error: Cannot delete branch '${name}' checked out at ~/proyecto`);
+            else if (!(name in S.branches)) print(`error: branch '${name}' not found.`);
+            else {
+              const was = S.branches[name];
+              delete S.branches[name];
+              print(`Deleted branch ${name} (was ${was ?? '0000000'}).`);
+            }
+          } else if (t[2]) {
+            const name = t[2];
+            if (name in S.branches) print(`fatal: a branch named '${name}' already exists`);
+            else {
+              S.branches[name] = curId();
+              print(`# rama '${name}' creada en ${curId() ?? '(sin commits)'}`, 'gterm-dim');
+            }
+          } else {
+            names(S.branches).forEach((b) => print(`${b === S.current ? '* ' : '  '}${b}`));
+          }
+        } else if (sub === 'switch' || sub === 'checkout') {
+          const create = t[2] === '-c' || t[2] === '-b';
+          const name = create ? t[3] : t[2];
+          if (!name) print(`fatal: missing branch name`);
+          else doSwitch(name, create);
+        } else if (sub === 'merge') {
+          doMerge(t[2]);
+        } else if (sub === 'config') {
+          print('# config no es necesario en esta terminal de práctica', 'gterm-dim');
+        } else {
+          print(`git: '${sub ?? ''}' is not a git command. See 'git --help'.`);
+        }
+        renderPanels();
+        return;
+      }
+
+      print(`command not found: ${cmd}`, 'gterm-del');
+      renderPanels();
+    }
+
+    // Arranque
+    print('Bienvenido a la terminal Git interactiva 🚀', 'gterm-welcome');
+    print('Este es un repositorio de práctica llamado ~/proyecto. Nada de lo que hagas aquí afecta a tu computadora.');
+    print('');
+    print('Tienes un archivo README.md sin rastrear. Empieza con:');
+    printHtml('  <span class="gterm-echo">git init</span>');
+    printHtml('  <span class="gterm-echo">git add .</span>');
+    printHtml('  <span class="gterm-echo">git commit -m "Primer commit"</span>');
+    if (showBranches) {
+      print('');
+      print('Después prueba las ramas:');
+      printHtml('  <span class="gterm-echo">git branch feature</span>');
+      printHtml('  <span class="gterm-echo">git switch feature</span>');
+      printHtml('  <span class="gterm-echo">git switch main</span>');
+      printHtml('  <span class="gterm-echo">git merge feature</span>');
+    }
+    print('');
+    updatePrompt();
+    renderPanels();
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        run(input.value);
+        input.value = '';
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (S.histPos > 0) {
+          S.histPos--;
+          input.value = S.hist[S.histPos] ?? '';
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (S.histPos < S.hist.length - 1) {
+          S.histPos++;
+          input.value = S.hist[S.histPos] ?? '';
+        } else {
+          S.histPos = S.hist.length;
+          input.value = '';
+        }
+      }
+    });
+
+    root.querySelector('[data-screen]')?.addEventListener('click', () => input.focus({ preventScroll: true }));
+
+    root.querySelectorAll('[data-chips] [data-cmd]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const cmd = (chip as HTMLElement).dataset.cmd ?? '';
+        input.value = cmd;
+        run(cmd);
+        input.value = '';
+        input.focus({ preventScroll: true });
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-gterm]').forEach((el) => initGitTerminal(el as HTMLElement));
+</script>

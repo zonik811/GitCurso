@@ -1,0 +1,167 @@
+---
+title: El flujo de trabajo de Git
+description: "Las tres áreas de Git: directorio de trabajo, staging e historial. Cómo viaja tu código."
+---
+
+import Callout from '../../components/Callout.astro';
+import GitTerminal from '../../components/GitTerminal.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+El 90% de la confusión con Git viene de no entender **dónde viven los cambios**. Git tiene tres áreas, y tus archivos viajan entre ellas.
+
+## Las tres áreas
+
+```text
+   Working Directory          Staging Area            Repository
+   (tu carpeta)               (índice)                (.git / historial)
+        │                          │                        │
+        │        git add           │       git commit       │
+        │  ──────────────────────► │  ────────────────────► │
+        │                          │                        │
+        │  ◄──────────────────────  │  ◄───────────────────  │
+        │     git restore          │    git checkout        │
+```
+
+1. **Working directory** (directorio de trabajo): tu carpeta real, donde editas archivos. Aquí los cambios son "borradores" que Git observa pero aún no ha guardado.
+2. **Staging area** (área de preparación o *index*): una bandeja donde colocas los cambios que quieres incluir en el próximo commit. Te permite elegir *qué* entra y *qué* no.
+3. **Repository** (repositorio): el historial permanente. Cada commit es una foto guardada para siempre.
+
+## El flujo básico
+
+```bash
+# 1. Modificas archivos en tu carpeta (working directory)
+# 2. Preparas los cambios que quieres guardar
+git add archivo.txt
+
+# 3. Guardas una foto permanente en el historial
+git commit -m "Añade la sección de contacto"
+
+# 4. (Opcional) Envías al servidor remoto
+git push
+```
+
+## ¿Por qué existe el staging?
+
+Podrías preguntarte: *¿por qué no guardar todo de una vez?* El staging te da **control quirúrgico**. Imagina que tocaste tres archivos pero solo dos forman una unidad lógica coherente. Puedes commitear solo esos dos y dejar el tercero para después:
+
+```bash
+git add login.js validaciones.js
+git commit -m "Corrige validación en el login"
+# usuario.js queda modificado pero sin commitear, para otro commit
+```
+
+Esto produce un historial limpio y fácil de entender, algo que tus compañeros (y tu yo del futuro) agradecerán.
+
+## Estados de un archivo
+
+En todo momento, un archivo está en uno de estos estados:
+
+| Estado | Significado |
+| --- | --- |
+| **Untracked** | Git lo ve, pero nunca lo ha rastreado. |
+| **Modified** | Ya está rastreado y lo cambiaste, pero no lo preparaste. |
+| **Staged** | Está preparado para el próximo commit. |
+| **Committed** | Guardado en el historial. |
+
+El comando que te dice en qué estado está todo es `git status`. Úsalo **constantemente**, es tu brújula:
+
+```bash
+git status
+```
+
+```text
+On branch main
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        modified:   index.html
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+        modified:   estilos.css
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        contacto.html
+```
+
+## El ciclo completo, visualizado
+
+```bash
+git init                 # crea el repositorio (.git)
+git status               # ¿qué está pasando?
+git add .                # prepara todos los cambios
+git commit -m "mensaje"  # guarda la foto
+git log --oneline        # revisa el historial
+```
+
+<Callout type="tip">
+  Memoriza este mantra: **edito → preparo (add) → confirmo (commit)**. Repetido mil veces, es todo el día a día de Git.
+</Callout>
+
+## Practica: mira las tres áreas en acción
+
+Esta es una **terminal Git de verdad simulada en tu navegador**. Escribe comandos (o pulsa los botones de abajo) y observa cómo los archivos se mueven entre el directorio de trabajo, el staging y los commits. Nada de lo que hagas aquí afecta a tu computadora.
+
+<GitTerminal />
+
+<Callout type="info">
+  Fíjate en el panel derecho: verás el archivo pasar de <strong>sin rastrear (?)</strong> a <strong>staged (A)</strong> y finalmente aparecer como un commit. Ese viaje es exactamente el flujo de las tres áreas.
+</Callout>
+
+## ¿En qué área está cada cosa?
+
+Git tiene tres áreas y cada archivo vive en una de ellas según lo que le hayas hecho. Arrastra cada archivo a su zona.
+
+<DragLab
+  mode="zonas"
+  title="Las tres áreas de Git"
+  instruction="Cada archivo está en un sitio distinto. Clasifícalos según su estado real ahora mismo."
+  success="Dominas las tres áreas. Todo lo que viene en el curso se mueve entre estos tres cajas."
+  seed="flujo-zonas"
+  zones={[
+    { id: 'working', label: 'Directorio de trabajo', icon: '✏️', hint: 'Lo que editas. Todavía no está en ningún commit.' },
+    { id: 'staging', label: 'Staging (índice)', icon: '🥘', hint: 'La bandeja: lo que entrará en el próximo commit.' },
+    { id: 'historial', label: 'Historial', icon: '📸', hint: 'Commits ya guardados. No se pueden borrar.' },
+  ]}
+  pool={[
+    { id: 'carrito', label: 'carrito.js: lo acabas de editar', answer: 'working', icon: '✏️' },
+    { id: 'index', label: 'index.html: preparado con git add', answer: 'staging', icon: '🥘' },
+    { id: 'logo', label: 'logo.png: incluido en el último commit', answer: 'historial', icon: '📸' },
+    { id: 'readme', label: 'README.md: lo editaste otra vez después de haberlo preparado', answer: 'working' },
+    { id: 'viejo', label: 'viejo.html: borrado con git rm, y el borrado está preparado', answer: 'staging' },
+    { id: 'config', label: 'config.js: la versión que te descargas con git clone', answer: 'historial' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba el flujo de trabajo"
+  questions={[
+    {
+      q: '¿Qué comando mueve cambios del directorio de trabajo al staging?',
+      options: ['git commit', 'git add', 'git push', 'git init'],
+      answer: 1,
+      explanation: 'git add prepara (staging) los cambios que entrarán en el próximo commit.',
+    },
+    {
+      q: '¿Qué comando guarda una "foto" permanente en el historial?',
+      options: ['git add', 'git status', 'git commit', 'git clone'],
+      answer: 2,
+      explanation: 'git commit toma lo que está en el staging y lo registra en el historial.',
+    },
+    {
+      q: '¿Dónde vive el historial completo del repositorio?',
+      options: ['En la nube', 'En la carpeta .git', 'En el staging', 'En el README'],
+      answer: 1,
+      explanation: 'La carpeta oculta .git contiene el historial, las ramas y la configuración. Si la borras, pierdes la memoria del repo.',
+    },
+  ]}
+/>
+
+## La carpeta `.git`
+
+Cuando ejecutas `git init`, Git crea una carpeta oculta llamada `.git` dentro de tu proyecto. Ahí vive **todo**: el historial, las ramas, la configuración. Si borras `.git`, borras la memoria del repositorio (tus archivos quedan, pero sin historial).
+
+En la siguiente lección pondremos en práctica todo esto con los comandos esenciales.

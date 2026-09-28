@@ -1,0 +1,147 @@
+---
+title: ¿Qué es Git y el control de versiones?
+description: Entiende por qué necesitas control de versiones, la historia de Git y los conceptos clave.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Antes de escribir un solo comando, conviene entender **qué problema resuelve Git**. Si captas el modelo mental, los comandos dejan de ser magia y se vuelven obvios.
+
+## El problema: versiones por todas partes
+
+Seguro reconoces esta escena:
+
+```text
+proyecto_final.docx
+proyecto_final_v2.docx
+proyecto_final_v2_bueno.docx
+proyecto_final_AHORA_SI.docx
+proyecto_final_ESTE_ES_EL_DEFINITIVO.docx
+```
+
+Copiar archivos con sufijos es la forma más primitiva de "control de versiones". Funciona hasta que necesitas saber **qué cambió**, **cuándo**, **quién** lo hizo y **por qué**. Ahí se rompe.
+
+Un **sistema de control de versiones (VCS)** guarda un historial completo de los cambios de un proyecto, con autor, fecha y mensaje, y te permite:
+
+- Volver a cualquier estado anterior.
+- Ver exactamente qué cambió entre dos versiones.
+- Trabajar en paralelo sin pisarte.
+- Colaborar sin sobrescribir el trabajo de otros.
+
+## ¿Qué es Git?
+
+**Git** es un sistema de control de versiones **distribuido**. Lo creó Linus Torvalds en 2005 para gestionar el kernel de Linux, y hoy es el estándar de facto del desarrollo de software.
+
+"Dos palabras clave":
+
+- **Sistema de control de versiones**: guarda el historial de cambios.
+- **Distribuido**: cada persona tiene una **copia completa** del repositorio, con toda su historia. No dependes de un servidor central para consultar el pasado.
+
+> Un **repositorio** (repo) es el proyecto más su historial. Es la carpeta del proyecto "con memoria".
+
+## Centralizado vs. distribuido
+
+| Aspecto | Centralizado (SVN, CVS) | Distribuido (Git) |
+| --- | --- | --- |
+| Historial | Solo en el servidor | Copia completa en cada máquina |
+| Trabajar sin conexión | Casi imposible | Total, haces commits offline |
+| Velocidad | Depende de la red | Operaciones locales, instantáneas |
+| Ramas | Caras y engorrosas | Baratas y rápidas |
+
+En Git, casi todo lo que haces (crear una rama, hacer un commit, ver el historial) ocurre **en tu computadora**, sin tocar la red. Solo sincronizas con el servidor cuando quieres compartir.
+
+## Conceptos clave (glosario mínimo)
+
+- **Repositorio (repo)**: el proyecto + su historial completo.
+- **Commit**: una "foto" del proyecto en un momento dado, con un identificador único (hash), autor, fecha y mensaje. Es la unidad básica del historial.
+- **Rama (branch)**: una línea de desarrollo independiente. La rama principal suele llamarse `main`.
+- **HEAD**: un puntero que indica en qué commit estás parado ahora mismo.
+- **Área de staging (índice)**: la "bandeja" donde preparas lo que entrará en el próximo commit.
+- **Remoto (remote)**: una copia del repo en un servidor, normalmente en GitHub.
+- **Working directory**: tu carpeta de trabajo, donde editas archivos.
+
+## ¿Qué es GitHub entonces?
+
+No confundas Git con GitHub:
+
+- **Git** es la herramienta que corre en tu máquina.
+- **GitHub** es un servicio en la nube que **aloja** repositorios Git y añade funciones de colaboración: Pull Requests, issues, wikis, Actions, etc.
+
+Existen alternativas a GitHub (GitLab, Bitbucket, Codeberg), pero GitHub es la más usada y la que veremos en este curso.
+
+<Callout type="info">
+  Analogía: Git es como el motor de un auto; GitHub es la autopista con estaciones de servicio donde la gente comparte viajes. Puedes usar Git sin GitHub, pero no GitHub sin Git.
+</Callout>
+
+## ¿Por qué deberías aprenderlo?
+
+- Es **imprescindible** para cualquier trabajo de programación en equipo.
+- Forma parte de tu portafolio: tus repos de GitHub **son** tu currículum como desarrollador.
+- Te da una red de seguridad: puedes experimentar sin miedo porque siempre puedes volver atrás.
+
+## Empareja cada término con su definición
+
+Antes de los comandos, fija el vocabulario. Arrastra cada término de Git hasta la descripción que lo define: si colocas bien los seis, el modelo mental del curso queda cerrado.
+
+<DragLab
+  mode="parejas"
+  title="El glosario que usaremos todo el curso"
+  instruction="Arrastra cada término hasta su definición. Si te equivocas, la pareja se marca en rojo y puedes deshacerla con la ✕."
+  success="Vocabulario completo. A partir de aquí, cada comando tendrá un nombre que ya conoces."
+  seed="que-es-git-parejas"
+  pairs={[
+    { id: 'repo', a: 'repositorio', aIcon: '📦', b: 'La carpeta del proyecto más todo su historial completo', bIcon: '📦' },
+    { id: 'commit', a: 'commit', aIcon: '📸', b: 'Una "foto" del proyecto con hash, autor, fecha y mensaje', bIcon: '📸' },
+    { id: 'rama', a: 'rama', aIcon: '🌿', b: 'Una línea de desarrollo paralela, como feature/login', bIcon: '🌿' },
+    { id: 'head', a: 'HEAD', aIcon: '📍', b: 'El puntero que indica en qué estás trabajando ahora mismo', bIcon: '📍' },
+    { id: 'staging', a: 'staging', aIcon: '🥘', b: 'La bandeja donde dejas lo que entrará en el próximo commit', bIcon: '🥘' },
+    { id: 'remoto', a: 'remoto', aIcon: '☁️', b: 'La copia del repositorio en un servidor como GitHub', bIcon: '☁️' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba los conceptos básicos"
+  questions={[
+    {
+      q: '¿Cuál es la diferencia entre Git y GitHub?',
+      options: [
+        'Son exactamente lo mismo',
+        'Git es la herramienta local; GitHub es el servicio en la nube que aloja repos',
+        'GitHub es el motor y Git la web',
+        'Git solo funciona si tienes GitHub',
+      ],
+      answer: 1,
+      explanation:
+        'Git corre en tu máquina y gestiona el historial. GitHub aloja repositorios y añade colaboración (PRs, issues, etc.).',
+    },
+    {
+      q: '¿Qué es un commit?',
+      options: [
+        'Una carpeta del proyecto',
+        'Una "foto" del proyecto con autor, fecha y mensaje',
+        'Un servidor remoto',
+        'Un tipo de rama',
+      ],
+      answer: 1,
+      explanation:
+        'Un commit registra el estado del proyecto en un momento dado, con un hash único, autor, fecha y mensaje.',
+    },
+    {
+      q: '¿Qué significa que Git sea un sistema distribuido?',
+      options: [
+        'Que solo funciona con conexión a internet',
+        'Que cada persona tiene una copia completa del historial en su máquina',
+        'Que necesita un servidor central para casi todo',
+        'Que no admite ramas',
+      ],
+      answer: 1,
+      explanation:
+        'En Git cada clon incluye toda la historia, por eso puedes hacer commits, ramas y ver el log sin conexión.',
+    },
+  ]}
+/>
+
+En la siguiente lección instalaremos Git y lo dejaremos listo para trabajar.

@@ -1,0 +1,227 @@
+---
+title: Rebase, stash y etiquetas
+description: Reescribe el historial con rebase, guarda trabajo temporal con stash y marca versiones con tags.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Tres herramientas que te dan control fino sobre tu historial y tu trabajo en curso.
+
+## `git stash` — guardar trabajo temporalmente
+
+Necesitas cambiar de rama pero tienes cambios a medias. `stash` los guarda en un cajón y deja tu working directory limpio.
+
+```bash
+git stash                          # guarda los cambios (con nombre automático)
+git stash push -m "avance del login"   # con mensaje descriptivo
+git stash list                     # ver los stashes guardados
+```
+
+```text
+stash@{0}: On main: avance del login
+stash@{1}: WIP on main: 3e2d1c0 Commit base
+```
+
+Recuperar:
+
+```bash
+git stash pop        # aplica y ELIMINA del cajón
+git stash apply      # aplica y CONSERVA en el cajón
+git stash drop       # borra el último stash
+git stash clear      # borra todos
+git stash show -p    # ver el contenido del último stash
+```
+
+Incluir archivos nuevos (untracked) en el stash:
+
+```bash
+git stash -u
+```
+
+<Callout type="tip">
+  El stash es perfecto para el clásico "¡urgente, hay que arreglar producción!". Guardas tu trabajo a medias, cambias de rama, arreglas, y luego vuelves y recuperas con `stash pop`.
+</Callout>
+
+## `git rebase` — reescribir la base
+
+`rebase` toma tus commits y los **reaplica** sobre otra base, produciendo un historial lineal y limpio, sin commits de merge.
+
+```text
+Antes (merge):           Después (rebase):
+   A ──► B ──► M            A ──► B ──► C' ──► D'
+        \    /                    ▲
+         C ── D              (tus commits reaplicados)
+```
+
+```bash
+git switch feature
+git rebase main
+```
+
+### Rebase interactivo
+
+La joya de Git. Permite **editar, reordenar, combinar y borrar** commits:
+
+```bash
+git rebase -i HEAD~4
+```
+
+Se abre un editor con tus últimos 4 commits:
+
+```text
+pick a1b2c3d Añade login
+pick b2c3d4e Fix typo
+pick c3d4e5f Añade logout
+pick d4e5f6a WIP
+```
+
+Cambia `pick` por:
+
+| Comando | Efecto |
+| --- | --- |
+| `pick` | Usar el commit tal cual |
+| `reword` | Editar solo el mensaje |
+| `edit` | Detener para modificar el commit |
+| `squash` | Combinar con el anterior (conservando ambos mensajes) |
+| `fixup` | Combinar con el anterior (descartando el mensaje) |
+| `drop` | Eliminar el commit |
+
+Ejemplo: unir los tres últimos commits en uno:
+
+```text
+pick a1b2c3d Añade login
+squash b2c3d4e Fix typo
+squash c3d4e5f Añade logout
+```
+
+<Callout type="danger">
+  **Regla de oro del rebase:** nunca hagas rebase de commits que ya publicaste en una rama compartida. Reescribe el historial y obliga a todos a re-sincronizar. Rebase solo en ramas locales o de un solo autor.
+</Callout>
+
+### Resolver conflictos durante un rebase
+
+```bash
+# ... Git se detiene por un conflicto ...
+git add archivo-resuelto
+git rebase --continue
+
+git rebase --skip      # ignorar el commit problemático
+git rebase --abort     # cancelar todo y volver atrás
+```
+
+### Rebase vs. merge
+
+| | Merge | Rebase |
+| --- | --- | --- |
+| Historial | Con commits de merge | Lineal y limpio |
+| Fidelidad | Conserva el orden real | Reescribe la historia |
+| Seguridad | Seguro en ramas compartidas | Solo en ramas privadas |
+| Uso típico | Integrar features en main | Actualizar tu rama con main |
+
+Una práctica común: `git pull --rebase` para traer cambios remotos sin crear commits de merge innecesarios.
+
+## `git tag` — marcar versiones
+
+Las etiquetas marcan commits importantes, normalmente **releases** (`v1.0.0`).
+
+```bash
+git tag                       # listar tags
+git tag v1.0.0                # tag ligero
+git tag -a v1.0.0 -m "Primera versión estable"   # tag anotado (recomendado)
+git tag -a v0.9.0 9f8e7d6 -m "Beta"              # sobre un commit concreto
+```
+
+Subir tags al remoto (no se suben con `git push` normal):
+
+```bash
+git push origin v1.0.0        # un tag
+git push origin --tags        # todos
+```
+
+Borrar:
+
+```bash
+git tag -d v1.0.0             # local
+git push origin --delete v1.0.0   # remoto
+```
+
+Ver un tag:
+
+```bash
+git show v1.0.0
+```
+
+### Versionado semántico (SemVer)
+
+Convención muy usada: `MAYOR.MENOR.PARCHE`
+
+- **MAYOR**: cambios incompatibles (1.0.0 → 2.0.0).
+- **MENOR**: nueva funcionalidad compatible (1.0.0 → 1.1.0).
+- **PARCHE**: corrección compatible (1.0.0 → 1.0.1).
+
+Ejemplo: `v2.4.1`.
+
+## Commit, stash, tag o rama
+
+Las cuatro herramientas se parecen y resuelven cosas distintas. Arrastra cada situación a la que le corresponde.
+
+<DragLab
+  mode="zonas"
+  title="Qué herramienta usar"
+  instruction="Cuatro cajas, cuatro intenciones. Piensa en qué quieres que pase con tu trabajo cuando llegue el momento."
+  success="Sabrás elegir la herramienta correcta a la primera."
+  seed="rebase-zonas"
+  zones={[
+    { id: 'commit', label: 'commit', icon: '📸', hint: 'Guarda progreso real en el historial.' },
+    { id: 'stash', label: 'stash', icon: '🧳', hint: 'Aparta el trabajo a medio hacer sin guardarlo de verdad.' },
+    { id: 'tag', label: 'tag', icon: '🏷️', hint: 'Marca un punto concreto del historial.' },
+    { id: 'rama', label: 'rama', icon: '🌿', hint: 'Abre una línea de trabajo paralela.' },
+  ]}
+  pool={[
+    { id: 'c1', label: 'Un cambio terminado que quieres guardar ya', answer: 'commit', icon: '📸' },
+    { id: 'c2', label: 'Trabajo a medias que te estorba para cambiar de rama', answer: 'stash', icon: '🧳' },
+    { id: 't1', label: 'La versión 2.0.0 que sale a producción hoy', answer: 'tag', icon: '🏷️' },
+    { id: 't2', label: 'El commit estable al que quieres volver si algo se rompe', answer: 'tag', icon: '🏷️' },
+    { id: 'b1', label: 'Una funcionalidad grande que todavía no debe mezclarse', answer: 'rama', icon: '🌿' },
+    { id: 'b2', label: 'Un arreglo urgente que tiene que salir hoy en main', answer: 'rama', icon: '🌿' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba rebase, stash y tags"
+  questions={[
+    {
+      q: '¿Para qué sirve `git stash`?',
+      options: [
+        'Guardar cambios temporalmente sin commitear',
+        'Borrar commits del historial',
+        'Crear una rama nueva',
+        'Subir cambios al remoto',
+      ],
+      answer: 0,
+      explanation: 'El stash guarda tu trabajo a medias en un cajón para dejar el working directory limpio, y lo recuperas con stash pop.',
+    },
+    {
+      q: '¿Cuál es la regla de oro del rebase?',
+      options: [
+        'Nunca hacer rebase de commits ya publicados en una rama compartida',
+        'Hacer rebase siempre en main',
+        'Usar rebase solo con tags',
+        'Hacer rebase solo cuando hay conflictos',
+      ],
+      answer: 0,
+      explanation: 'El rebase reescribe el historial; si ya lo publicaste, obligas a los demás a re-sincronizar.',
+    },
+    {
+      q: '¿Qué comando sube todos los tags al remoto?',
+      options: ['git push', 'git push --tags', 'git tag --push', 'git push origin main'],
+      answer: 1,
+      explanation: 'Los tags no se suben con git push normal; usa git push --tags (o git push origin <tag>).',
+    },
+  ]}
+/>
+
+Con esto tu historial está bajo control. Ahora salimos de nuestra máquina: los repositorios remotos y GitHub.

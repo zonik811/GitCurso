@@ -1,0 +1,201 @@
+---
+title: Deshacer cambios
+description: restore, reset, revert y commit --amend, cómo corregir errores sin miedo.
+---
+
+import Callout from '../../components/Callout.astro';
+import GitTerminal from '../../components/GitTerminal.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Metiste la pata. Bienvenido: a todos nos pasa. Git está diseñado para que puedas corregir casi cualquier error. La clave es saber **qué** quieres deshacer y **dónde** está ese cambio.
+
+## Tabla de decisión rápida
+
+| Quiero deshacer… | Comando |
+| --- | --- |
+| Cambios en un archivo no preparado | `git restore archivo` |
+| Cambios ya preparados (staged) | `git restore --staged archivo` |
+| El último commit (manteniendo cambios) | `git reset --soft HEAD~1` |
+| El último commit (borrando cambios) | `git reset --hard HEAD~1` |
+| Un commit ya publicado | `git revert <hash>` |
+| El mensaje del último commit | `git commit --amend` |
+| Archivos sin rastrear | `git clean -n` / `git clean -f` |
+
+## `git restore` — descartar cambios en archivos
+
+Vuelve un archivo a su estado del último commit (¡pierdes los cambios sin guardar!):
+
+```bash
+git restore estilos.css
+git restore .              # todos los archivos
+```
+
+Sácalo del staging, pero conservando los cambios:
+
+```bash
+git restore --staged estilos.css
+```
+
+Recupera un archivo de un commit concreto:
+
+```bash
+git restore --source=HEAD~2 estilos.css
+```
+
+## Practica: descarta y prepara cambios
+
+En esta terminal puedes crear un archivo, commitearlo, modificarlo y luego usar `git restore` para descartar la modificación, o `git restore --staged` para sacarlo del staging. Observa el panel derecho tras cada comando.
+
+<GitTerminal title="Practica: restore y staging" />
+
+<Callout type="tip">
+  Prueba: <code>git init</code> → <code>git add .</code> → <code>git commit -m "Base"</code> → <code>echo "cambio" &gt; README.md</code> → <code>git status</code> → <code>git restore README.md</code>. El archivo vuelve a su estado del último commit.
+</Callout>
+
+## `git reset` — mover el puntero del historial
+
+`reset` mueve `HEAD` (y la rama) a otro commit. Sus tres modos difieren en qué pasa con el staging y el working directory:
+
+```bash
+git reset --soft HEAD~1    # deshace el commit, deja cambios en staging
+git reset --mixed HEAD~1   # deshace el commit y saca de staging (por defecto)
+git reset --hard HEAD~1    # deshace el commit y BORRA los cambios
+```
+
+```text
+--soft   historial ← atrás | staging intacto   | working intacto
+--mixed  historial ← atrás | staging vaciado   | working intacto
+--hard   historial ← atrás | staging vaciado   | working BORRADO
+```
+
+<Callout type="danger">
+  `--hard` borra trabajo de forma irreversible. Úsalo solo cuando estés seguro. Si ya habías hecho push de ese commit, no uses `reset`: usa `revert`.
+</Callout>
+
+Ejemplo típico: hiciste un commit con un archivo que no querías y quieres rehacerlo:
+
+```bash
+git reset --soft HEAD~1
+git restore --staged archivo-que-no-queria.txt
+git commit -m "Commit limpio, sin el archivo extra"
+```
+
+## `git revert` — deshacer sin borrar historia
+
+`revert` crea un **nuevo commit** que aplica los cambios inversos. Es la forma segura de deshacer algo que ya compartiste:
+
+```bash
+git revert a1b2c3d
+git revert HEAD
+```
+
+```text
+* 7f8e9d0 Revert "Añade función rota"
+* a1b2c3d Añade función rota
+* 4c3b2a1 Commit anterior
+```
+
+La historia se conserva: queda claro que hubo un error y que se corrigió. **Esta es la regla de oro en ramas compartidas.**
+
+## `git commit --amend` — corregir el último commit
+
+¿Olvidaste un archivo o escribiste mal el mensaje? Si el commit **aún no lo has publicado**:
+
+```bash
+# Corregir el mensaje
+git commit --amend -m "Mensaje correcto"
+
+# Añadir un archivo olvidado
+git add archivo-olvidado.txt
+git commit --amend --no-edit
+```
+
+<Callout type="warn">
+  `--amend` reescribe el último commit, cambiando su hash. Si ya lo subiste, tendrás que hacer *force push*, lo que rompe el historial de tus compañeros. Solo hazlo en commits locales.
+</Callout>
+
+## `git clean` — borrar archivos sin rastrear
+
+Limpia archivos y carpetas que Git no rastrea (compilados, temporales):
+
+```bash
+git clean -n      # simulación: muestra qué borraría
+git clean -f      # borra archivos sin rastrear
+git clean -fd     # borra también carpetas
+git clean -fdx    # incluye archivos ignorados por .gitignore
+```
+
+Siempre ejecuta primero `-n` (dry-run).
+
+## Recuperar trabajo "perdido": `git reflog`
+
+Git guarda un registro de todos los movimientos de HEAD, incluso los de commits "borrados". Si un `reset --hard` te arruinó el día, `reflog` es tu salvavidas:
+
+```bash
+git reflog
+```
+
+```text
+a1b2c3d HEAD@{0}: reset: moving to HEAD~1
+f9e8d7c HEAD@{1}: commit: Añade funcionalidad importante
+```
+
+Recupera ese commit:
+
+```bash
+git reset --hard f9e8d7c
+# o mejor, crea una rama para no perderlo:
+git branch rescate f9e8d7c
+```
+
+<Callout type="tip">
+  Casi nada se pierde de verdad en Git mientras no pasen semanas y se recoja la basura. Ante el pánico, respira y ejecuta `git reflog`.
+</Callout>
+
+## ¿Qué comando toca aquí?
+
+Cada error tiene su comando. Arrastra el comando correcto hasta la situación que resuelve.
+
+<DragLab
+  mode="parejas"
+  title="Situación → comando"
+  instruction="Une cada desastre con su solución. Ojo con reset y revert: parecen iguales y no lo son."
+  success="Dominas el kit de rescue. Ya puedes experimentar sin miedo."
+  seed="deshacer-parejas"
+  pairs={[
+    { id: 'restore', a: 'git restore archivo', aIcon: '↩️', b: 'Borré cambios de un archivo que ni siquiera había preparado', bIcon: '💥' },
+    { id: 'unstaged', a: 'git restore --staged archivo', aIcon: '🥘', b: 'Preparé un archivo por error y quiero sacarlo de la bandeja sin perderlo', bIcon: '🥘' },
+    { id: 'revert', a: 'git revert HEAD', aIcon: '↩️', b: 'Subí un commit que rompió producción y no puedo reescribir la historia', bIcon: '🌐' },
+    { id: 'amend', a: 'git commit --amend', aIcon: '📝', b: 'Escribí mal el mensaje del commit que acabo de hacer', bIcon: '💬' },
+    { id: 'clean', a: 'git clean -fd', aIcon: '🧹', b: 'Creé archivos de prueba que no quiero y quiero eliminarlos de verdad', bIcon: '🗑️' },
+    { id: 'reset', a: 'git reset --hard HEAD~1', aIcon: '⏪', b: 'Quiero que mi rama local vuelva al commit anterior porque aún nadie la ha visto', bIcon: '🧵' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba cómo deshacer cambios"
+  questions={[
+    {
+      q: '¿Qué comando descarta los cambios no preparados de un archivo?',
+      options: ['git reset --hard', 'git restore archivo', 'git revert', 'git clean -f'],
+      answer: 1,
+      explanation: 'git restore archivo devuelve el archivo a su estado del último commit (o del staging).',
+    },
+    {
+      q: '¿Cuál es la forma segura de deshacer un commit que YA publicaste?',
+      options: ['git reset --hard', 'git commit --amend', 'git revert', 'git reflog'],
+      answer: 2,
+      explanation: 'git revert crea un commit nuevo con los cambios inversos, sin reescribir el historial compartido.',
+    },
+    {
+      q: '¿Qué comando puede recuperar commits "perdidos" tras un reset --hard?',
+      options: ['git log', 'git reflog', 'git status', 'git fsck'],
+      answer: 1,
+      explanation: 'git reflog registra todos los movimientos de HEAD, incluso los de commits que parecen borrados.',
+    },
+  ]}
+/>
+
+Con esto ya puedes experimentar sin miedo. Ahora subamos de nivel: las ramas.

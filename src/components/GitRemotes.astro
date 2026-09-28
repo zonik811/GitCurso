@@ -1,0 +1,181 @@
+---
+---
+
+<div class="grem" data-grem>
+  <div class="grem-head">
+    <span class="grem-ico">🌐</span>
+    <span>Simulador de repositorios remotos</span>
+    <span class="gterm-tag">interactivo</span>
+  </div>
+
+  <div class="grem-body">
+    <div class="grem-side">
+      <div class="grem-side-title">💻 Tu repo local</div>
+      <ul class="grem-list" data-local></ul>
+    </div>
+
+    <div class="grem-mid">
+      <div class="grem-status" data-status></div>
+      <div class="grem-actions">
+        <button type="button" data-act="commit">➕ Commit local</button>
+        <button type="button" data-act="push">⬆️ git push</button>
+        <button type="button" data-act="fetch">🔍 git fetch</button>
+        <button type="button" data-act="pull">⬇️ git pull</button>
+        <button type="button" data-act="remote">👤 Commit del compañero</button>
+      </div>
+      <p class="grem-hint">Simula dos repositorios y mira cómo se mueven los commits entre ellos.</p>
+    </div>
+
+    <div class="grem-side">
+      <div class="grem-side-title">☁️ GitHub (origin)</div>
+      <ul class="grem-list" data-remote></ul>
+    </div>
+  </div>
+
+  <div class="grem-log" data-log></div>
+</div>
+
+<script>
+  interface RCommit {
+    id: string;
+    msg: string;
+  }
+
+  function initGitRemotes(root: HTMLElement) {
+    const localEl = root.querySelector('[data-local]') as HTMLElement;
+    const remoteEl = root.querySelector('[data-remote]') as HTMLElement;
+    const statusEl = root.querySelector('[data-status]') as HTMLElement;
+    const logEl = root.querySelector('[data-log]') as HTMLElement;
+
+    const base: RCommit = { id: 'base', msg: 'Commit inicial' };
+    const S = {
+      local: [base] as RCommit[],
+      remote: [base] as RCommit[],
+      c: 0,
+    };
+
+    const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+
+    function log(msg: string, kind = '') {
+      const d = document.createElement('div');
+      d.className = 'grem-logline' + (kind ? ' ' + kind : '');
+      d.textContent = msg;
+      logEl.appendChild(d);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    const localIds = () => new Set(S.local.map((c) => c.id));
+    const remoteIds = () => new Set(S.remote.map((c) => c.id));
+
+    function counts() {
+      const l = localIds();
+      const r = remoteIds();
+      const ahead = S.local.filter((c) => !r.has(c.id)).length;
+      const behind = S.remote.filter((c) => !l.has(c.id)).length;
+      return { ahead, behind };
+    }
+
+    function render() {
+      const { ahead, behind } = counts();
+      const l = localIds();
+      const r = remoteIds();
+
+      localEl.innerHTML = '';
+      [...S.local].reverse().forEach((c) => {
+        const li = document.createElement('li');
+        const onlyLocal = !r.has(c.id);
+        li.className = 'grem-commit' + (onlyLocal ? ' local-only' : '');
+        li.innerHTML = `<span class="grem-dot"></span><span class="grem-msg">${esc(c.msg)}</span>${onlyLocal ? '<span class="grem-tag">solo local</span>' : ''}`;
+        localEl.appendChild(li);
+      });
+
+      remoteEl.innerHTML = '';
+      [...S.remote].reverse().forEach((c) => {
+        const li = document.createElement('li');
+        const onlyRemote = !l.has(c.id);
+        li.className = 'grem-commit' + (onlyRemote ? ' remote-only' : '');
+        li.innerHTML = `<span class="grem-dot"></span><span class="grem-msg">${esc(c.msg)}</span>${onlyRemote ? '<span class="grem-tag">solo remoto</span>' : ''}`;
+        remoteEl.appendChild(li);
+      });
+
+      if (ahead === 0 && behind === 0) {
+        statusEl.innerHTML = '<span class="grem-ok">✓ Todo sincronizado</span>';
+      } else {
+        const parts: string[] = [];
+        if (ahead) parts.push(`↑ ${ahead} por subir`);
+        if (behind) parts.push(`↓ ${behind} por bajar`);
+        statusEl.innerHTML = `<span class="grem-pending">${parts.join(' · ')}</span>`;
+      }
+    }
+
+    const nextId = (p: string) => p + ++S.c;
+
+    function commitLocal() {
+      S.local.push({ id: nextId('l'), msg: `Cambio local #${S.c}` });
+      log(`git commit -m "Cambio local #${S.c}"  →  commit creado en local`);
+      render();
+    }
+
+    function remoteCommit() {
+      S.remote.push({ id: nextId('r'), msg: `Cambio del compañero #${S.c}` });
+      log(`Un compañero hizo push a origin  →  nuevo commit en el remoto`, 'warn');
+      render();
+    }
+
+    function push() {
+      const { behind } = counts();
+      if (behind > 0) {
+        log('! [rejected] main -> main (fetch first) — el remoto tiene commits que no tienes. Haz git pull primero.', 'error');
+        return;
+      }
+      const r = remoteIds();
+      const toSend = S.local.filter((c) => !r.has(c.id));
+      if (!toSend.length) {
+        log('Everything up-to-date. (no hay nada que subir)');
+        return;
+      }
+      toSend.forEach((c) => S.remote.push(c));
+      log(`git push  →  ${toSend.length} commit(s) enviados a origin`, 'ok');
+      render();
+    }
+
+    function fetchRemote() {
+      const { behind } = counts();
+      if (behind === 0) log('git fetch  →  origin/main actualizado (sin novedades)');
+      else log(`git fetch  →  origin/main actualizado: hay ${behind} commit(s) nuevos en el remoto`, 'warn');
+    }
+
+    function pull() {
+      const { behind, ahead } = counts();
+      if (behind === 0) {
+        log('Already up to date.');
+        return;
+      }
+      const l = localIds();
+      const incoming = S.remote.filter((c) => !l.has(c.id));
+      incoming.forEach((c) => S.local.push(c));
+      log(
+        `git pull  →  ${incoming.length} commit(s) recibidos` +
+          (ahead > 0 ? ' y fusionados con tus cambios locales (merge)' : ''),
+        'ok',
+      );
+      render();
+    }
+
+    root.querySelectorAll('[data-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const act = (btn as HTMLElement).dataset.act;
+        if (act === 'commit') commitLocal();
+        else if (act === 'remote') remoteCommit();
+        else if (act === 'push') push();
+        else if (act === 'fetch') fetchRemote();
+        else if (act === 'pull') pull();
+      });
+    });
+
+    log('Estado inicial: local y origin tienen el mismo commit. Prueba a hacer un commit local y luego git push.');
+    render();
+  }
+
+  document.querySelectorAll('[data-grem]').forEach((el) => initGitRemotes(el as HTMLElement));
+</script>

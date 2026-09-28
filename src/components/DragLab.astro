@@ -1,0 +1,1304 @@
+---
+type Mode = 'orden' | 'parejas' | 'zonas' | 'comando' | 'grafo';
+
+interface Item {
+  id: string;
+  label: string;
+  icon?: string;
+  code?: string;
+  answer?: string;
+  decoy?: boolean;
+}
+interface Zone {
+  id: string;
+  label: string;
+  icon?: string;
+  hint?: string;
+}
+interface Node {
+  id: string;
+  label: string;
+  sub?: string;
+  icon?: string;
+  x: number;
+  y: number;
+  lane?: string;
+}
+
+interface Props {
+  mode: Mode;
+  title?: string;
+  instruction?: string;
+  hint?: string;
+  success?: string;
+  seed?: string;
+  items?: (string | Item)[];
+  pairs?: { id: string; a: string; b: string; aIcon?: string; bIcon?: string }[];
+  zones?: Zone[];
+  pool?: (string | Item)[];
+  nodes?: Node[];
+  edges?: [string, string][];
+  nodeW?: number;
+  nodeH?: number;
+}
+
+const {
+  mode,
+  title = 'Arrastra y practica',
+  instruction,
+  hint,
+  success,
+  seed = '',
+  items = [],
+  pairs = [],
+  zones = [],
+  pool = [],
+  nodes = [],
+  edges = [],
+  nodeW = 150,
+  nodeH = 58,
+} = Astro.props;
+
+const NODE_W = nodeW;
+const NODE_H = nodeH;
+const PAD = 30;
+
+const hash = (str: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+
+const rng = (state: number) => {
+  let s = state >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s >>>= 0;
+    return s / 4294967296;
+  };
+};
+
+const shuffled = <T,>(list: T[], state: number) => {
+  const out = [...list];
+  const next = rng(state);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
+
+const asItem = (raw: string | Item): Item =>
+  typeof raw === 'string' ? { id: raw, label: raw } : raw;
+
+const salt = hash(seed || title || mode);
+const hintId = `dndhint-${salt.toString(36)}`;
+
+/* orden: la solución viaja en data-pos, la lista nace barajada */
+const ordenItems = items.map((raw, i) => ({ ...asItem(raw), pos: i }));
+const ordenShuffled = mode === 'orden' ? shuffled(ordenItems, salt) : ordenItems;
+
+/* parejas: fichas a un lado, destinos al otro */
+const pairItems = shuffled(pairs, salt);
+
+/* zonas: piezas sueltas en el cajón */
+const poolItems = shuffled(pool.map(asItem), salt);
+
+/* comando: fichas que arman la línea, barajadas */
+const cmdItems = items.map((raw, i) => ({ ...asItem(raw), pos: i }));
+const cmdShuffled = mode === 'comando' ? shuffled(cmdItems, salt) : cmdItems;
+
+/* grafo: lienzo según la posición de cada nodo */
+const graphW = Math.max(...nodes.map((n) => n.x + NODE_W), NODE_W) + PAD;
+const graphH = Math.max(...nodes.map((n) => n.y + NODE_H), NODE_H) + PAD;
+const laneNames = [...new Set(nodes.map((n) => n.lane).filter(Boolean))] as string[];
+const laneX = (name: string) =>
+  Math.min(...nodes.filter((n) => n.lane === name).map((n) => n.x)) - 16;
+const laneOrder = laneNames.sort((a, b) => laneX(a) - laneX(b));
+
+/* el texto que aparece en el hueco de destino: asi no puede desincronizarse
+   del enunciado, que antes hardcodeaba "suelta el comando aqui" en los 6 labs
+   de parejas, donde en realidad se suelta un termino */
+const DROP_HINT: Record<Mode, string> = {
+  orden: 'suelta aquí la ficha',
+  parejas: 'arrastra el término hasta aquí',
+  zonas: 'suelta la pieza en su zona',
+  comando: 'suelta la ficha aquí',
+  grafo: 'suelta aquí',
+};
+
+const ICONS: Record<Mode, string> = {
+  orden: '🔢',
+  parejas: '🧲',
+  zonas: '🗂️',
+  comando: '⌨️',
+  grafo: '🌿',
+};
+---
+
+<section
+  class={`dndlab dndlab--${mode}`}
+  data-dnd={mode}
+  data-edges={JSON.stringify(edges)}
+  style={`--dn:${NODE_W}px;--dh:${NODE_H}px`}
+>
+  <header class="dnd-head">
+    <span class="dnd-ico" aria-hidden="true">{ICONS[mode]}</span>
+    <div>
+      <h3 class="dnd-title">{title}</h3>
+      {instruction && <p class="dnd-instr">{instruction}</p>}
+    </div>
+  </header>
+
+  <p class="dnd-hint" id={hintId}>
+    {
+      hint ?? (
+        <>
+          Arrastra con el ratón o el dedo. Con teclado: <kbd>Intro</kbd> para coger una pieza,
+          flechas para moverla o elegir destino y <kbd>Esc</kbd> para cancelar.
+        </>
+      )
+    }
+  </p>
+
+  {
+    mode === 'orden' && (
+      <ol
+        class="dnd-list"
+        data-dnd-list
+        data-dnd-axis="y"
+        aria-describedby={hintId}
+      >
+        {ordenShuffled.map((item) => (
+          <li
+            class="dnd-card"
+            data-dnd-item={item.id}
+            data-pos={item.pos}
+            data-dnd-label={item.label}
+            tabindex="0"
+          >
+            <span class="dnd-num" aria-hidden="true" />
+            {item.icon && (
+              <span class="dnd-emoji" aria-hidden="true">
+                {item.icon}
+              </span>
+            )}
+            <span class="dnd-text">
+              {item.code ? <code>{item.code}</code> : item.label}
+              {item.code && item.label !== item.code && <em>{item.label}</em>}
+            </span>
+            <span class="dnd-grip" aria-hidden="true">
+              ⠿
+            </span>
+          </li>
+        ))}
+      </ol>
+    )
+  }
+
+  {
+    mode === 'parejas' && (
+      <div class="dnd-pairs">
+        <ul class="dnd-bank" data-dnd-list aria-describedby={hintId}>
+          {pairItems.map((p) => (
+            <li class="dnd-chip" data-dnd-item={p.id} data-dnd-label={p.a} tabindex="0">
+              {p.aIcon && (
+                <span aria-hidden="true">
+                  {p.aIcon}{' '}
+                </span>
+              )}
+              <code>{p.a}</code>
+            </li>
+          ))}
+        </ul>
+        <ul class="dnd-targets">
+          {pairItems.map((p) => (
+            <li
+              class="dnd-slot"
+              data-dnd-zone={p.id}
+              data-dnd-zone-label={p.b}
+              data-dnd-answer={p.id}
+            >
+              <span class="dnd-slot-text">
+                {p.bIcon && (
+                  <span aria-hidden="true">
+                    {p.bIcon}{' '}
+                  </span>
+                )}
+                {p.b}
+              </span>
+              <button class="dnd-undo" type="button" data-undo hidden aria-label={`Deshacer ${p.a}`}>
+                ✕
+              </button>
+              <span class="dnd-slot-slot" data-drop data-hint={DROP_HINT[mode]} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  {
+    mode === 'zonas' && (
+      <div class="dnd-buckets">
+        <p class="dnd-cmd-label">Piezas sueltas</p>
+        <div
+          class="dnd-pool"
+          data-dnd-zone="pool"
+          data-dnd-zone-label="el cajón"
+          data-dnd-pool
+          data-dnd-list
+          data-dnd-axis="x"
+        >
+          {poolItems.map((item) => (
+            <span
+              class="dnd-token"
+              data-dnd-item={item.id}
+              data-dnd-label={item.label}
+              data-answer={item.answer}
+              tabindex="0"
+            >
+              {item.icon && (
+                <span aria-hidden="true">
+                  {item.icon}{' '}
+                </span>
+              )}
+              {item.code ? <code>{item.code}</code> : item.label}
+            </span>
+          ))}
+        </div>
+
+        <div class="dnd-zonegrid">
+          {zones.map((z) => (
+            <section class="dnd-zone" data-dnd-zone={z.id} data-dnd-zone-label={z.label}>
+              <h4 class="dnd-zone-head">
+                {z.icon && (
+                  <span aria-hidden="true">
+                    {z.icon}{' '}
+                  </span>
+                )}
+                {z.label}
+              </h4>
+              {z.hint && <p class="dnd-zone-hint">{z.hint}</p>}
+              <div class="dnd-zone-body" data-dnd-list data-dnd-axis="x">
+                <span class="dnd-zone-empty">Suelta aquí</span>
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  {
+    mode === 'comando' && (
+      <div class="dnd-buckets">
+        <p class="dnd-cmd-label">Terminal</p>
+        <div
+          class="dnd-cmdbar"
+          data-dnd-zone="cmd"
+          data-dnd-zone-label="la línea de comando"
+          data-dnd-list
+          data-dnd-axis="x"
+        >
+          <span class="dnd-prompt" aria-hidden="true">
+            ❯
+          </span>
+        </div>
+        <p class="dnd-cmd-preview">
+          <span class="dnd-cmd-preview-label">Así se ejecutará:</span>
+          <code data-preview>&nbsp;</code>
+        </p>
+        <p class="dnd-cmd-label">Fichas</p>
+        <div
+          class="dnd-pool"
+          data-dnd-zone="pool"
+          data-dnd-zone-label="las fichas"
+          data-dnd-pool
+          data-dnd-list
+          data-dnd-axis="x"
+        >
+          {cmdShuffled.map((item) => (
+            <span
+              class="dnd-token dnd-token--cmd"
+              data-dnd-item={item.id}
+              data-dnd-label={item.code ?? item.label}
+              data-pos={item.pos}
+              data-decoy={item.decoy ? '' : undefined}
+              tabindex="0"
+            >
+              <code>{item.code ?? item.label}</code>
+            </span>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  {
+    mode === 'grafo' && (
+      <div class="dnd-graphwrap">
+        <div class="dnd-graph" style={`width:${graphW}px;height:${graphH}px`}>
+          <svg
+            class="dnd-graph-svg"
+            data-graph-svg
+            width={graphW}
+            height={graphH}
+            aria-hidden="true"
+          />
+          {laneOrder.map((l) => (
+            <span class="dnd-lane" style={`left:${laneX(l)}px`}>
+              {l}
+            </span>
+          ))}
+          {nodes.map((n) => (
+            <button
+              class="dnd-node"
+              type="button"
+              data-gnode={n.id}
+              data-dnd-label={`${n.label}${n.sub ? `, ${n.sub}` : ''}`}
+              aria-pressed="false"
+              style={`left:${n.x}px;top:${n.y}px`}
+            >
+              {n.icon && (
+                <span class="dnd-node-ico" aria-hidden="true">
+                  {n.icon}
+                </span>
+              )}
+              <span class="dnd-node-txt">
+                <b>{n.label}</b>
+                {n.sub && <em>{n.sub}</em>}
+              </span>
+              <span class="dnd-node-port" data-gnode-port aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        <p class="dnd-graph-help">
+          Une cada commit con el que le sigue: arrastra desde el punto
+          <span class="dnd-port-demo" aria-hidden="true" /> del nodo origen hasta el nodo destino. Con
+          teclado: <kbd>Intro</kbd>{' '}
+          sobre el nodo origen y luego sobre el destino.
+        </p>
+      </div>
+    )
+  }
+
+  <div class="dnd-solved" data-solved hidden>
+    <span aria-hidden="true">🎉</span>
+    <p>{success ?? '¡Perfecto! Dominado el concepto.'}</p>
+  </div>
+
+  <footer class="dnd-foot">
+    <div class="dnd-actions">
+      <button class="dnd-btn dnd-btn--go" type="button" data-act="check">Comprobar</button>
+      {mode !== 'grafo' && <button class="dnd-btn" type="button" data-act="shuffle">Barajar</button>}
+      <button class="dnd-btn" type="button" data-act="reset">Reiniciar</button>
+    </div>
+    <p class="dnd-feedback" data-feedback hidden role="status" />
+  </footer>
+</section>
+
+<script>
+  import { initDragLabs } from '../lib/dragdrop';
+
+  // El motor solo necesita el HTML ya renderizado: se activa primero para que un
+  // fallo en la interfaz de un laboratorio no deje a los demás sin arrastre.
+  initDragLabs();
+
+  const $all = (root, sel) => Array.from(root.querySelectorAll(sel));
+  /* una ficha cuyo id empieza por x- es distractor: no forma parte de la solución */
+  const isDecoy = (el) => 'decoy' in el.dataset || el.dataset.dndItem.startsWith('x-');
+
+  /* acepta [["A","B"], ...] y ["A>B", ...] */
+  const edgeId = (e) => (Array.isArray(e) ? `${e[0]}>${e[1]}` : String(e));
+  const requiredEdges = (root) => JSON.parse(root.dataset.edges || '[]').map(edgeId);
+  const $kids = (root, sel) => Array.from(root.children).filter((c) => c.matches(sel));
+
+  const rnd = (list) => {
+    const out = [...list];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  };
+
+  const LOST = {
+    orden: 'Casi. Repasa en qué orden viajan los pasos.',
+    parejas: 'Alguna pareja no encaja. Vuelve a leer el término y su definición.',
+    zonas: 'Hay piezas en la zona equivocada.',
+    comando: 'El comando todavía no es válido. Revisa el orden de las fichas.',
+    grafo: 'El grafo no coincide: revisa qué flechas sobran o qué commits se quedan sin unir.',
+  };
+
+  $all(document, '[data-dnd]').forEach((host) => {
+    const check = host.dataset.dnd;
+    const solved = host.querySelector('[data-solved]');
+    const feedbackEl = host.querySelector('[data-feedback]');
+    const bank = host.querySelector('[data-dnd-pool]') ?? host.querySelector('.dnd-bank') ?? host.querySelector('[data-dnd-list]');
+    const order = new Map($all(host, '[data-dnd-item]').map((el, i) => [el, i]));
+
+    const say = (ok, custom) => {
+      feedbackEl.textContent = ok ? '¡Correcto! Así es.' : (custom || LOST[check]);
+      feedbackEl.classList.toggle('is-ok', ok);
+      feedbackEl.hidden = false;
+      solved.hidden = !ok;
+      host.classList.toggle('is-solved', ok);
+    };
+
+    /* ---------- estado de cada mecánica ---------- */
+
+    const placed = (zone) => $kids(zone, '[data-dnd-item]');
+
+    const isSolved = () => {
+      if (check === 'orden') {
+        const live = $kids(host.querySelector('[data-dnd-list]'), '[data-dnd-item]');
+        return live.length > 0 && live.every((el, i) => +el.dataset.pos === i);
+      }
+      if (check === 'comando') {
+        const all = $kids(host.querySelector('[data-dnd-zone="cmd"]'), '[data-dnd-item]');
+        const live = all.filter((el) => !isDecoy(el));
+        const total = $all(host, '[data-dnd-item]').filter((el) => !isDecoy(el)).length;
+        return (
+          all.length === live.length &&
+          live.length === total &&
+          live.every((el, i) => +el.dataset.pos === i)
+        );
+      }
+      if (check === 'parejas') {
+        return $all(host, '.dnd-slot').every((slot) => {
+          const chip = slot.querySelector('[data-dnd-item]');
+          return Boolean(chip) && chip.dataset.dndItem === slot.dataset.dndAnswer;
+        });
+      }
+      if (check === 'zonas') {
+        return $all(host, '[data-dnd-item]').every((el) => {
+          const zone = el.closest('[data-dnd-zone]');
+          return zone && zone.dataset.dndZone === el.dataset.answer;
+        });
+      }
+      if (check === 'grafo') {
+        const drawn = $all(host, '[data-gedge]').map((p) => edgeId(p.dataset.gedge));
+        const required = requiredEdges(host);
+        return drawn.length === required.length && required.every((r) => drawn.includes(r));
+      }
+      return false;
+    };
+
+    const markWrong = () => {
+      $all(host, '.is-wrong').forEach((el) => el.classList.remove('is-wrong'));
+      if (check === 'orden' || check === 'comando') {
+        const zone = check === 'orden' ? host.querySelector('[data-dnd-list]') : host.querySelector('[data-dnd-zone="cmd"]');
+        const live = $kids(zone, '[data-dnd-item]').filter((el) => !isDecoy(el));
+        $kids(zone, '[data-dnd-item]').forEach((el) => {
+          if (isDecoy(el)) return el.classList.add('is-wrong');
+          el.classList.toggle('is-wrong', +el.dataset.pos !== live.indexOf(el));
+        });
+      } else if (check === 'zonas') {
+        $all(host, '[data-dnd-item]').forEach((el) => {
+          const zone = el.closest('[data-dnd-zone]');
+          el.classList.toggle('is-wrong', !zone || zone.dataset.dndZone !== el.dataset.answer);
+        });
+      } else if (check === 'parejas') {
+        $all(host, '.dnd-slot').forEach((slot) => {
+          const chip = slot.querySelector('[data-dnd-item]');
+          slot.classList.toggle('is-wrong', !chip || chip.dataset.dndItem !== slot.dataset.dndAnswer);
+        });
+      } else if (check === 'grafo') {
+        const required = requiredEdges(host);
+        $all(host, '[data-gedge]').forEach((p) => p.classList.toggle('is-wrong', !required.includes(edgeId(p.dataset.gedge))));
+      }
+    };
+
+    const numberize = () => {
+      $all(host, '.dnd-num').forEach((n, i) => (n.textContent = String(i + 1)));
+    };
+
+    const preview = () => {
+      const out = host.querySelector('[data-preview]');
+      if (!out) return;
+      const parts = $kids(host.querySelector('[data-dnd-zone="cmd"]'), '[data-dnd-item]').map(
+        (el) => el.dataset.dndLabel || '',
+      );
+      out.textContent = parts.length ? parts.join(' ') : ' ';
+    };
+
+    const emptyHints = () => {
+      $all(host, '.dnd-zone').forEach((zone) => {
+        const empty = zone.querySelector('.dnd-zone-empty');
+        if (empty) empty.hidden = placed(zone).length > 0;
+      });
+    };
+
+    /* ---------- grafo ---------- */
+
+    const drawGraph = () => {
+      const svg = host.querySelector('[data-graph-svg]');
+      if (!svg) return;
+      $all(svg, '[data-gedge]').forEach((p) => p.remove());
+      const box = svg.getBoundingClientRect();
+      const rectOf = (id) => {
+        const el = host.querySelector(`[data-gnode="${id}"]`);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return {
+          l: r.left - box.left,
+          r: r.right - box.left,
+          t: r.top - box.top,
+          b: r.bottom - box.top,
+          cx: r.left + r.width / 2 - box.left,
+          cy: r.top + r.height / 2 - box.top,
+        };
+      };
+
+      /* la flecha sale por el lado que mira al destino: horizontal o vertical */
+      const curve = (fromId, toId) => {
+        const A = rectOf(fromId);
+        const B = rectOf(toId);
+        if (!A || !B) return null;
+        const dx = B.cx - A.cx;
+        const dy = B.cy - A.cy;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          const a = { x: dx >= 0 ? A.r : A.l, y: A.cy };
+          const b = { x: dx >= 0 ? B.l : B.r, y: B.cy };
+          const mid = (a.x + b.x) / 2;
+          return `M ${a.x} ${a.y} C ${mid} ${a.y}, ${mid} ${b.y}, ${b.x} ${b.y}`;
+        }
+        const a = { x: A.cx, y: dy >= 0 ? A.b : A.t };
+        const b = { x: B.cx, y: dy >= 0 ? B.t : B.b };
+        const mid = (a.y + b.y) / 2;
+        return `M ${a.x} ${a.y} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${b.y}`;
+      };
+      $all(host, '[data-gfrom]').forEach((mark) => {
+        const d = curve(mark.dataset.gfrom, mark.dataset.gto);
+        if (!d) return;
+        const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        p.setAttribute('class', 'dnd-edge');
+        p.setAttribute('data-gedge', `${mark.dataset.gfrom}>${mark.dataset.gto}`);
+        p.setAttribute('d', d);
+        svg.appendChild(p);
+      });
+    };
+
+    const addEdge = (from, to) => {
+      if (from === to) return say(false, 'Un commit no puede seguirse a sí mismo.');
+      if (host.querySelector(`[data-gfrom="${from}"][data-gto="${to}"]`))
+        return say(false, 'Esa flecha ya está dibujada.');
+      if (host.querySelector(`[data-gfrom="${to}"][data-gto="${from}"]`))
+        return say(false, 'El historial solo avanza hacia delante: no se puede volver atrás.');
+      const mark = document.createElement('span');
+      mark.hidden = true;
+      mark.dataset.gfrom = from;
+      mark.dataset.gto = to;
+      host.appendChild(mark);
+      drawGraph();
+      say(isSolved());
+      if (!isSolved()) {
+        solved.hidden = true;
+        feedbackEl.hidden = true;
+      }
+    };
+
+    /* ---------- reflow: devuelve todo a su sitio ---------- */
+
+    const reflow = (shuffleIt) => {
+      if (check === 'grafo') {
+        $all(host, '[data-gfrom]').forEach((el) => el.remove());
+        drawGraph();
+      }
+      if (bank) {
+        const items = $all(host, '[data-dnd-item]');
+        const list = shuffleIt
+          ? rnd(items)
+          : items.sort((a, b) => order.get(a) - order.get(b));
+        list.forEach((el) => {
+          el.classList.remove('is-locked', 'is-wrong');
+          bank.appendChild(el);
+        });
+      }
+      $all(host, '.dnd-slot').forEach((slot) => {
+        slot.classList.remove('is-filled', 'is-ok', 'is-wrong');
+        slot.querySelector('[data-undo]').hidden = true;
+      });
+      $all(host, '.is-wrong').forEach((el) => el.classList.remove('is-wrong'));
+      emptyHints();
+      numberize();
+      preview();
+      feedbackEl.hidden = true;
+      solved.hidden = true;
+      host.classList.remove('is-solved');
+    };
+
+    /* ---------- eventos ---------- */
+
+    /* celebra en cuanto acierta y retira el cartel si vuelve a estar mal,
+       pero no corrige mientras la pieza sigue en la mano */
+    const live = () => {
+      const ok = isSolved();
+      if (ok || !solved.hidden) say(ok);
+    };
+
+    host.addEventListener('dnd:reorder', () => {
+      numberize();
+      preview();
+      emptyHints();
+    });
+
+    host.addEventListener('dnd:change', () => {
+      numberize();
+      preview();
+      emptyHints();
+      live();
+    });
+
+    host.addEventListener('dnd:drop', (e) => {
+      const { item, itemId, zone, zoneId } = e.detail;
+      if (!item || !zone) return;
+
+      if (check === 'zonas') {
+        (zone.querySelector('[data-dnd-list]') ?? zone).appendChild(item);
+      } else if (check === 'parejas') {
+        const drop = zone.querySelector('[data-drop]');
+        $all(drop, '[data-dnd-item]').forEach((old) => {
+          old.classList.remove('is-locked');
+          host.querySelector('.dnd-bank').appendChild(old);
+        });
+        drop.appendChild(item);
+        const ok = itemId === zoneId;
+        item.classList.toggle('is-locked', ok);
+        zone.classList.add('is-filled');
+        zone.classList.toggle('is-ok', ok);
+        zone.classList.toggle('is-wrong', !ok);
+        const undo = zone.querySelector('[data-undo]');
+        undo.hidden = false;
+        undo.onclick = () => {
+          host.querySelector('.dnd-bank').appendChild(item);
+          item.classList.remove('is-locked');
+          zone.classList.remove('is-filled', 'is-ok', 'is-wrong');
+          undo.hidden = true;
+          say(false, 'Pareja deshecha. Inténtalo de nuevo.');
+        };
+      } else if (item.parentElement !== zone) {
+        zone.appendChild(item);
+      }
+
+      /* al soltar, ni victoria ni error antes de tiempo: solo habla si acaba
+         de completarse, o si esta pieza concreta no encaja */
+      if (isSolved()) say(true);
+      else if (check === 'parejas' && itemId !== zoneId) say(false);
+      else feedbackEl.hidden = true;
+    });
+
+    host.addEventListener('dnd:edge', (e) => addEdge(e.detail.from, e.detail.to));
+
+    host.querySelector('[data-act="check"]').addEventListener('click', () => {
+      const ok = isSolved();
+      markWrong();
+      say(ok);
+    });
+    host.querySelector('[data-act="shuffle"]')?.addEventListener('click', () => reflow(true));
+    host.querySelector('[data-act="reset"]').addEventListener('click', () => reflow(false));
+
+    emptyHints();
+    numberize();
+    preview();
+    drawGraph();
+
+    window.addEventListener('resize', () => drawGraph());
+  });
+</script>
+
+<style is:global>
+  .dndlab {
+    --dnd-ok: var(--green);
+    --dnd-bad: var(--red);
+    margin: 1.75rem 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-subtle);
+    padding: 1.15rem 1.25rem 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .dndlab::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), transparent 72%);
+  }
+  .dndlab.is-solved {
+    border-color: color-mix(in srgb, var(--dnd-ok) 55%, var(--border));
+  }
+  .dndlab [hidden],
+  .dndlab .is-hidden {
+    display: none !important;
+  }
+  .dnd-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .dnd-busy {
+    user-select: none;
+    cursor: grabbing;
+  }
+
+  .dnd-head {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+  }
+  .dnd-ico {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  .dndlab .dnd-title {
+    margin: 0;
+    font-size: 1.1rem;
+    border: 0;
+    padding: 0;
+  }
+  .dndlab .dnd-instr {
+    margin: 0.15rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.94rem;
+  }
+  .dnd-hint {
+    margin: 0.7rem 0 0.9rem;
+    font-size: 0.82rem;
+    color: var(--text-faint);
+    line-height: 1.5;
+  }
+  .dndlab kbd {
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0 0.3em;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  /* ---------- piezas arrastrables ---------- */
+  .dnd-card,
+  .dnd-chip,
+  .dnd-token,
+  .dnd-node-port {
+    touch-action: none;
+  }
+  .dnd-card,
+  .dnd-chip,
+  .dnd-token,
+  .dnd-node {
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .dnd-ghost {
+    pointer-events: none !important;
+    z-index: 999;
+    opacity: 0.96;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+    border-radius: var(--radius-sm);
+    rotate: -1.5deg;
+  }
+  .dndlab .is-lifted {
+    opacity: 0.3;
+  }
+  .dndlab :is(.dnd-card, .dnd-chip, .dnd-token, .dnd-node, .dnd-slot):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .dndlab .is-held {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ---------- orden ---------- */
+  .dndlab .dnd-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .dndlab .dnd-card {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.7rem;
+  }
+  .dndlab .dnd-card.is-wrong {
+    border-color: var(--dnd-bad);
+    background: color-mix(in srgb, var(--dnd-bad) 12%, var(--bg-elevated));
+  }
+  .dndlab .dnd-num {
+    flex: 0 0 1.6rem;
+    height: 1.6rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accent-emphasis);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dndlab .dnd-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .dndlab .dnd-text code {
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    color: var(--text);
+  }
+  .dndlab .dnd-text em {
+    display: block;
+    font-style: normal;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .dndlab .dnd-grip {
+    color: var(--text-faint);
+    font-size: 1.05rem;
+    letter-spacing: -2px;
+  }
+
+  /* ---------- parejas ---------- */
+  .dndlab .dnd-pairs {
+    display: grid;
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+    gap: 0.75rem;
+  }
+  .dndlab .dnd-bank {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem;
+    display: grid;
+    gap: 0.45rem;
+    align-content: start;
+    align-self: start;
+    background: var(--bg-muted);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .dndlab .dnd-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-emphasis);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.6rem;
+    font-size: 0.88rem;
+  }
+  .dndlab .dnd-chip.is-locked {
+    border-left-color: var(--dnd-ok);
+    background: color-mix(in srgb, var(--dnd-ok) 10%, var(--bg-elevated));
+  }
+  .dndlab .dnd-chip code {
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+  .dndlab .dnd-targets {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+    align-content: start;
+  }
+  .dndlab .dnd-slot {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'text undo' 'drop drop';
+    gap: 0.3rem 0.4rem;
+    align-items: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.6rem;
+    font-size: 0.88rem;
+  }
+  .dndlab .dnd-slot-text {
+    grid-area: text;
+    color: var(--prose-text);
+  }
+  .dndlab .dnd-slot-slot {
+    grid-area: drop;
+    min-height: 2.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    font-size: 0.74rem;
+    color: var(--text-faint);
+  }
+  .dndlab .dnd-slot-slot:has([data-dnd-item])::after {
+    content: none;
+  }
+  .dndlab .dnd-slot-slot::after {
+    content: attr(data-hint, 'suelta aquí');
+  }
+  .dndlab .dnd-slot.is-over,
+  .dndlab .dnd-slot.is-filled {
+    border-color: var(--accent);
+  }
+  .dndlab .dnd-slot.is-over {
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+  }
+  .dndlab .dnd-slot.is-ok {
+    border-color: var(--dnd-ok);
+  }
+  .dndlab .dnd-slot.is-wrong {
+    border-color: var(--dnd-bad);
+  }
+  .dndlab .dnd-undo {
+    grid-area: undo;
+    background: none;
+    border: 0;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.15rem 0.25rem;
+  }
+  .dndlab .dnd-undo:hover {
+    color: var(--dnd-bad);
+  }
+
+  /* ---------- zonas y comando ---------- */
+  .dndlab .dnd-cmd-label {
+    margin: 0.9rem 0 0.35rem;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-faint);
+  }
+  .dndlab .dnd-buckets .dnd-cmd-label:first-child {
+    margin-top: 0;
+  }
+  .dndlab .dnd-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-content: start;
+    min-height: 3rem;
+    padding: 0.5rem;
+    background: var(--bg-muted);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .dndlab .dnd-pool.is-over {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-muted));
+  }
+  .dndlab .dnd-token {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.85rem;
+  }
+  .dndlab .dnd-token code {
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+  .dndlab .dnd-token.is-wrong {
+    border-color: var(--dnd-bad);
+    background: color-mix(in srgb, var(--dnd-bad) 14%, var(--bg-elevated));
+  }
+  .dndlab .dnd-token--cmd {
+    border-bottom: 2px solid var(--accent-emphasis);
+  }
+  .dndlab .dnd-cmdbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    min-height: 3.1rem;
+    padding: 0.5rem 0.7rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+  }
+  .dndlab .dnd-cmdbar.is-over {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .dndlab .dnd-prompt {
+    color: var(--dnd-ok);
+    font-weight: 700;
+    margin-right: 0.15rem;
+  }
+  .dndlab .dnd-cmd-preview {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+  }
+  .dndlab .dnd-cmd-preview-label {
+    color: var(--text-faint);
+  }
+  .dndlab .dnd-cmd-preview code {
+    font-family: var(--font-mono);
+    color: var(--dnd-ok);
+    font-size: 0.88rem;
+    word-break: break-all;
+  }
+  .dndlab .dnd-zonegrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+  }
+  .dndlab .dnd-zone {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.6rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .dndlab .dnd-zone.is-over {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .dndlab .dnd-zone-head {
+    margin: 0;
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .dndlab .dnd-zone-hint {
+    margin: 0.15rem 0 0.4rem;
+    font-size: 0.76rem;
+    color: var(--text-faint);
+    line-height: 1.4;
+  }
+  .dndlab .dnd-zone-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-content: start;
+    flex: 1;
+    min-height: 3.4rem;
+    padding: 0.35rem;
+    border: 1px dashed var(--border-muted);
+    border-radius: 6px;
+  }
+  .dndlab .dnd-zone-empty {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    align-self: center;
+    margin: auto;
+  }
+
+  /* ---------- grafo ---------- */
+  .dndlab .dnd-graphwrap {
+    overflow-x: auto;
+    padding-bottom: 0.3rem;
+  }
+  .dndlab .dnd-graph {
+    position: relative;
+  }
+  .dndlab .dnd-graph-svg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .dndlab .dnd-edge,
+  .dndlab .dnd-wire {
+    fill: none;
+    stroke: var(--dnd-ok);
+    stroke-width: 2;
+  }
+  .dndlab .dnd-edge.is-wrong {
+    stroke: var(--dnd-bad);
+  }
+  .dndlab .dnd-wire {
+    stroke: var(--accent);
+    stroke-dasharray: 5 4;
+  }
+  .dndlab .dnd-node {
+    position: absolute;
+    width: var(--dn);
+    height: var(--dh);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-align: left;
+    color: var(--text);
+  }
+  .dndlab .dnd-node-ico {
+    font-size: 0.95rem;
+  }
+  .dndlab .dnd-node-txt {
+    min-width: 0;
+    line-height: 1.25;
+  }
+  .dndlab .dnd-node-txt b {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .dndlab .dnd-node-txt em {
+    display: block;
+    font-style: normal;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .dndlab .dnd-node.is-over {
+    border-color: var(--dnd-ok);
+    background: color-mix(in srgb, var(--dnd-ok) 16%, var(--bg-elevated));
+  }
+  .dndlab .dnd-node.is-source {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .dndlab .dnd-node-port {
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--accent);
+  }
+  .dndlab .dnd-node-port::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+  }
+  .dndlab .dnd-lane {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+  .dndlab .dnd-graph-help {
+    margin: 0.9rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-faint);
+    line-height: 1.5;
+  }
+  .dndlab .dnd-port-demo {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--accent);
+    vertical-align: middle;
+  }
+
+  /* ---------- pie ---------- */
+  .dndlab .dnd-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.9rem;
+    margin-top: 0.9rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--border-muted);
+  }
+  .dndlab .dnd-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .dndlab .dnd-btn {
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.32rem 0.72rem;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .dndlab .dnd-btn:hover {
+    border-color: var(--accent);
+  }
+  .dndlab .dnd-btn--go {
+    background: var(--accent-emphasis);
+    border-color: var(--accent-emphasis);
+    color: #fff;
+  }
+  .dndlab .dnd-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .dndlab .dnd-feedback {
+    margin: 0;
+    font-size: 0.84rem;
+    color: var(--dnd-bad);
+  }
+  .dndlab .dnd-feedback.is-ok {
+    color: var(--dnd-ok);
+    font-weight: 600;
+  }
+  .dndlab .dnd-solved {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--dnd-ok) 50%, var(--border));
+    background: color-mix(in srgb, var(--dnd-ok) 12%, transparent);
+    font-size: 0.88rem;
+  }
+  .dndlab .dnd-solved p {
+    margin: 0;
+  }
+
+  @media (max-width: 720px) {
+    .dndlab {
+      padding: 0.9rem 0.8rem 0.8rem;
+    }
+    .dndlab .dnd-pairs,
+    .dndlab .dnd-zonegrid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

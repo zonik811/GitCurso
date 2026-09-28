@@ -1,0 +1,164 @@
+---
+const preset = `# Dependencias
+node_modules/
+vendor/
+
+# Compilados
+dist/
+build/
+*.exe
+*.o
+
+# Entorno y secretos
+.env
+.env.local
+*.key
+
+# Logs
+*.log
+!importante.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/`;
+
+const examples = [
+  'node_modules/lodash/index.js',
+  'src/app.js',
+  'dist/bundle.js',
+  'logs/debug.log',
+  'importante.log',
+  '.env',
+  'src/keys/api.key',
+  'README.md',
+  '.DS_Store',
+  'src/.vscode/settings.json',
+];
+---
+
+<div class="gign" data-gign>
+  <div class="gign-head">
+    <span class="gign-ico">🧩</span>
+    <span>Probador de .gitignore</span>
+    <span class="gterm-tag">interactivo</span>
+  </div>
+
+  <div class="gign-body">
+    <div class="gign-col">
+      <label class="gign-label" for="gignPatterns">Contenido de <code>.gitignore</code> (editable)</label>
+      <textarea id="gignPatterns" class="gign-patterns" data-patterns spellcheck="false">{preset}</textarea>
+    </div>
+
+    <div class="gign-col">
+      <label class="gign-label" for="gignPath">Ruta del archivo</label>
+      <input id="gignPath" class="gign-path" data-path type="text" value="node_modules/lodash/index.js" spellcheck="false" />
+      <div class="gign-result" data-result></div>
+      <div class="gign-examples" data-examples>
+        <span class="gign-examples-label">Prueba:</span>
+        {examples.map((e) => <button type="button" data-example={e}>{e}</button>)}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function initGitignoreTester(root: HTMLElement) {
+    const patternsEl = root.querySelector('[data-patterns]') as HTMLTextAreaElement;
+    const pathEl = root.querySelector('[data-path]') as HTMLInputElement;
+    const resultEl = root.querySelector('[data-result]') as HTMLElement;
+
+    function toRegex(pattern: string) {
+      let p = pattern;
+      if (p.endsWith('/')) p = p.slice(0, -1);
+      let anchored = false;
+      if (p.startsWith('/')) {
+        p = p.slice(1);
+        anchored = true;
+      } else if (p.includes('/')) {
+        anchored = true;
+      }
+      let re = '';
+      for (let i = 0; i < p.length; i++) {
+        const c = p[i];
+        if (c === '*') {
+          if (p[i + 1] === '*') {
+            re += '.*';
+            i++;
+            if (p[i + 1] === '/') i++;
+          } else {
+            re += '[^/]*';
+          }
+        } else if (c === '?') {
+          re += '[^/]';
+        } else if ('\\^$.|+()[]{}'.includes(c)) {
+          re += '\\' + c;
+        } else {
+          re += c;
+        }
+      }
+      const prefix = anchored ? '^' : '(^|.*/)';
+      return new RegExp(prefix + re + '(/.*)?$');
+    }
+
+    function evaluate() {
+      const path = pathEl.value.trim();
+      const lines = patternsEl.value.split('\n');
+      let ignored = false;
+      let rule: string | null = null;
+
+      if (path) {
+        for (const raw of lines) {
+          const line = raw.trim();
+          if (!line || line.startsWith('#')) continue;
+          let pat = line;
+          let negate = false;
+          if (pat.startsWith('!')) {
+            negate = true;
+            pat = pat.slice(1);
+          }
+          try {
+            if (toRegex(pat).test(path)) {
+              ignored = !negate;
+              rule = line;
+            }
+          } catch {
+            /* patrón inválido: se ignora */
+          }
+        }
+      }
+
+      if (!path) {
+        resultEl.innerHTML = '<span class="gign-hint">Escribe una ruta para comprobarla</span>';
+        return;
+      }
+
+      if (ignored) {
+        resultEl.innerHTML =
+          `<span class="gign-badge ignored">Ignorado</span>` +
+          (rule ? `<span class="gign-rule">regla: <code>${rule.replace(/[&<>]/g, '')}</code></span>` : '');
+      } else {
+        resultEl.innerHTML =
+          `<span class="gign-badge tracked">Se versiona</span>` +
+          (rule ? `<span class="gign-rule">última regla: <code>${rule.replace(/[&<>]/g, '')}</code></span>` : '');
+      }
+    }
+
+    patternsEl.addEventListener('input', evaluate);
+    pathEl.addEventListener('input', evaluate);
+    root.querySelectorAll('[data-example]').forEach((b) => {
+      b.addEventListener('click', () => {
+        pathEl.value = (b as HTMLElement).dataset.example ?? '';
+        evaluate();
+        pathEl.focus();
+      });
+    });
+
+    evaluate();
+  }
+
+  document.querySelectorAll('[data-gign]').forEach((el) => initGitignoreTester(el as HTMLElement));
+</script>

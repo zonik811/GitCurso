@@ -1,0 +1,47 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { curriculum, totalLessons, totalMinutes } from '../../data/curriculum';
+
+const numberFor = (slug: string) => {
+  let n = 0;
+  for (const m of curriculum) {
+    for (const l of m.lessons) {
+      n++;
+      if (l.slug === slug) return n.toString().padStart(2, '0');
+    }
+  }
+  return '';
+};
+---
+
+<BaseLayout title="Todas las lecciones" crumb="Temario completo">
+  <article class="prose">
+    <h1>Temario completo</h1>
+    <p>
+      {totalLessons} lecciones · {totalMinutes} minutos · {curriculum.length} módulos.
+      Sigue el orden recomendado o salta directamente al tema que necesites.
+    </p>
+
+    {
+      curriculum.map((module) => (
+        <section>
+          <h2>
+            {module.icon} {module.title}
+          </h2>
+          <p>{module.description}</p>
+          <ul>
+            {module.lessons.map((lesson) => (
+              <li>
+                <a href={`/lecciones/${lesson.slug}/`}>
+                  <strong>{numberFor(lesson.slug)}. {lesson.title}</strong>
+                </a>{' '}
+                — {lesson.description}{' '}
+                <em>({lesson.duration} min)</em>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+  </article>
+</BaseLayout>

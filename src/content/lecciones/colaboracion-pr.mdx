@@ -1,0 +1,250 @@
+---
+title: "Colaboración: forks y Pull Requests"
+description: Forks, Pull Requests, issues y code review. El corazón del trabajo en equipo.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Aquí es donde Git y GitHub brillan: varias personas trabajando en el mismo proyecto sin pisarse. La herramienta central es el **Pull Request**.
+
+## El modelo de colaboración
+
+Hay dos formas de contribuir a un repositorio:
+
+1. **Colaborador directo**: te añaden al repo y puedes crear ramas y hacer push directamente. Común en equipos.
+2. **Fork + Pull Request**: no tienes permisos de escritura, así que copias el repo a tu cuenta (fork), haces cambios y propones que los integren (PR). Común en código abierto.
+
+## ¿Qué es un fork?
+
+Un **fork** es una copia completa de un repositorio en **tu** cuenta de GitHub. Queda vinculado al original para que puedas proponer cambios.
+
+```text
+organizacion/proyecto   ← original (upstream)
+        │  fork
+        ▼
+tu-usuario/proyecto     ← tu copia (origin)
+```
+
+Al clonar tu fork, conviene añadir el original como `upstream`:
+
+```bash
+git clone git@github.com:tu-usuario/proyecto.git
+cd proyecto
+git remote add upstream git@github.com:organizacion/proyecto.git
+git remote -v
+```
+
+## ¿Qué es un Pull Request (PR)?
+
+Un **Pull Request** es una propuesta formal de cambios: "tengo esta rama con mejoras, ¿quieres integrarla?". Permite:
+
+- Ver el **diff** completo de los cambios.
+- Comentar línea por línea (**code review**).
+- Discutir, pedir ajustes y aprobar.
+- Integrar (merge) cuando esté listo.
+
+## Flujo completo de un Pull Request
+
+### 1. Actualiza tu fork y crea una rama
+
+```bash
+git switch main
+git fetch upstream
+git merge upstream/main      # o: git rebase upstream/main
+git push origin main         # actualiza tu fork en GitHub
+
+git switch -c fix/typo-readme
+```
+
+### 2. Haz tus cambios
+
+```bash
+# edita archivos...
+git add README.md
+git commit -m "Corrige error tipográfico en la sección de instalación"
+```
+
+### 3. Sube la rama a tu fork
+
+```bash
+git push -u origin fix/typo-readme
+```
+
+### 4. Abre el Pull Request
+
+GitHub te mostrará un botón **Compare & pull request**. Escribe:
+
+- **Título** claro y conciso.
+- **Descripción**: qué cambia, por qué, y cómo probarlo. Referencia issues: `Closes #42`.
+
+### 5. Responde al code review
+
+El equipo comentará. Ajusta con más commits y haz push a la misma rama: **el PR se actualiza solo**.
+
+```bash
+git add .
+git commit -m "Aplica sugerencias del review"
+git push
+```
+
+### 6. Se integra (merge)
+
+Cuando lo aprueban, el mantenedor hace merge. Luego puedes limpiar:
+
+```bash
+git switch main
+git branch -d fix/typo-readme
+git push origin --delete fix/typo-readme
+```
+
+## Tipos de merge en GitHub
+
+Al integrar un PR, GitHub ofrece tres opciones:
+
+| Opción | Resultado |
+| --- | --- |
+| **Create a merge commit** | Historial completo con commit de merge. |
+| **Squash and merge** | Combina todos los commits del PR en uno solo. Muy usado. |
+| **Rebase and merge** | Reaplica los commits sin commit de merge (lineal). |
+
+## Issues: organizar el trabajo
+
+Los **issues** son tickets para bugs, ideas y tareas. Buenas prácticas:
+
+- Título descriptivo y cuerpo con pasos para reproducir.
+- **Labels**: `bug`, `enhancement`, `documentation`, `good first issue`.
+- **Assignees**: quién lo trabaja.
+- **Milestones**: agrupar issues por versión.
+
+Cerrar un issue automáticamente al fusionar un PR:
+
+```text
+Closes #42
+Fixes #42
+Resolves #42
+```
+
+## Code review: dar y recibir feedback
+
+Un buen review es específico, amable y constructivo:
+
+- **Autor**: PRs pequeños y enfocados. Un PR de 2000 líneas nadie lo revisa bien.
+- **Revisor**: comenta el *qué* y el *por qué*, sugiere, no impongas.
+- Usa **suggested changes** de GitHub para proponer ediciones exactas.
+
+<Callout type="tip">
+  Empieza contribuyendo a proyectos open source con issues etiquetados `good first issue`. Es la mejor escuela y suma a tu portafolio.
+</Callout>
+
+## Proteger la rama principal
+
+En repos de equipo, configura **branch protection** en `main`:
+
+- Requerir PR antes de fusionar.
+- Requerir al menos una aprobación.
+- Requerir que pasen los checks de CI (tests).
+
+Así nadie rompe `main` por accidente.
+
+## Resumen del flujo colaborativo
+
+```bash
+# Preparar
+git clone git@github.com:tu-usuario/proyecto.git
+git remote add upstream git@github.com:organizacion/proyecto.git
+
+# Rama de trabajo
+git switch -c feature/nueva
+git add . && git commit -m "Añade nueva funcionalidad"
+git push -u origin feature/nueva
+
+# Abrir PR en GitHub → review → merge → limpiar
+```
+
+## Escenario real: tu primera contribución open source
+
+1. Encuentras un proyecto y un issue etiquetado `good first issue`.
+2. Haces **fork** y clonas tu copia: `git clone git@github.com:tu-usuario/proyecto.git`.
+3. Añades el original: `git remote add upstream git@github.com:organizacion/proyecto.git`.
+4. Creas una rama, arreglas el issue y haces commit.
+5. Subes tu rama y abres un **Pull Request** describiendo qué cambias y por qué.
+6. Atiendes el review, haces push de los ajustes y, cuando lo aprueban, se fusiona.
+
+## Errores comunes
+
+<Callout type="warn">
+  **PRs gigantes.** Un PR de 2000 líneas no se revisa bien. Divide el trabajo en PRs pequeños y enfocados.
+</Callout>
+
+<Callout type="warn">
+  **Abrir el PR desde main.** Crea siempre una rama por cambio; así puedes tener varios PRs en paralelo sin mezclarlos.
+</Callout>
+
+<Callout type="danger">
+  **No actualizar tu fork.** Si no sincronizas con `upstream`, tu PR partirá de una base antigua y acumulará conflictos. Haz `git fetch upstream && git merge upstream/main` antes de empezar.
+</Callout>
+
+## Qué herramienta usa cada situación
+
+GitHub tiene cuatro piezas basics y se confunden entre sí constantemente. Arrastra cada situación a la suya.
+
+<DragLab
+  mode="zonas"
+  title="fork, clone, pull request e issue"
+  instruction="Piensa en dos cosas: si necesitas una copia propia, o si estás proponiendo un cambio en el trabajo de alguien más."
+  success="Ya distingues las cuatro herramientas de GitHub sin pensar."
+  seed="colab-zonas"
+  zones={[
+    { id: 'fork', label: 'fork', icon: '🍴', hint: 'Tu propia copia bajo tu cuenta.' },
+    { id: 'clone', label: 'clone', icon: '📥', hint: 'Bajar un repo a tu máquina, con todo su historial.' },
+    { id: 'pr', label: 'pull request', icon: '🔀', hint: 'Proponer tus cambios para que los revisen.' },
+    { id: 'issue', label: 'issue', icon: '🐞', hint: 'Reportar un problema o proponer una mejora.' },
+  ]}
+  pool={[
+    { id: 'f1', label: 'Quiero contribuir a un proyecto del que no soy dueño', answer: 'fork', icon: '🍴' },
+    { id: 'f2', label: 'Necesito mi propia copia del repo para poder trabajar', answer: 'fork', icon: '🍴' },
+    { id: 'c1', label: 'Quiero bajar ese proyecto entero a mi ordenador', answer: 'clone', icon: '📥' },
+    { id: 'c2', label: 'Arranco un proyecto nuevo a partir de un repo existente', answer: 'clone', icon: '📥' },
+    { id: 'p1', label: 'Quiero que revisen mis commits antes de subirlos', answer: 'pr', icon: '🔀' },
+    { id: 'i1', label: 'La app se rompe al iniciar y quiero avisar', answer: 'issue', icon: '🐞' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba la colaboración"
+  questions={[
+    {
+      q: '¿Qué es un fork?',
+      options: [
+        'Una rama local más',
+        'Una copia del repositorio en tu cuenta de GitHub',
+        'Un commit especial',
+        'Un tipo de merge',
+      ],
+      answer: 1,
+      explanation: 'Un fork es una copia completa del repo en tu cuenta, vinculada al original (upstream) para proponer cambios.',
+    },
+    {
+      q: '¿Para qué sirve un Pull Request?',
+      options: [
+        'Para descargar código',
+        'Para proponer cambios y que los revisen antes de integrarlos',
+        'Para borrar ramas',
+        'Para compilar el proyecto',
+      ],
+      answer: 1,
+      explanation: 'Un PR propone una rama para revisión: muestra el diff, permite comentar y se integra cuando se aprueba.',
+    },
+    {
+      q: '¿Cómo cierras automáticamente un issue al fusionar un PR?',
+      options: ["Escribiendo 'Closes #42' en la descripción", 'Con git close', 'Con un tag', 'No se puede'],
+      answer: 0,
+      explanation: 'Palabras clave como Closes, Fixes o Resolves seguidas del número de issue lo cierran al fusionar el PR.',
+    },
+  ]}
+/>
+
+Ahora que dominas la colaboración por terminal, veremos cómo hacer todo esto con una interfaz gráfica: GitHub Desktop.

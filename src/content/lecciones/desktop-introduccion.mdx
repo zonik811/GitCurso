@@ -1,0 +1,164 @@
+---
+title: Introducción a GitHub Desktop
+description: Instala la app, conéctala con tu cuenta y conoce su interfaz.
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+No todo el mundo quiere (o necesita) memorizar comandos. **GitHub Desktop** es la aplicación oficial y gratuita de GitHub para usar Git con interfaz gráfica. Es ideal para empezar y perfecta para tareas visuales como revisar diffs o resolver conflictos.
+
+## ¿Qué es GitHub Desktop?
+
+Es un **cliente de Git con interfaz gráfica**. Por debajo ejecuta los mismos comandos que aprendiste, pero te los presenta con botones, listas y vistas de diferencias.
+
+```text
+Tú → GitHub Desktop → comandos de Git → repositorio
+```
+
+Ventajas:
+
+- No memorizas comandos.
+- Los **diffs** se ven con colores, lado a lado.
+- Resolver conflictos es mucho más claro.
+- Gestiona tu autenticación con GitHub automáticamente.
+
+Limitaciones:
+
+- No cubre operaciones avanzadas (rebase interactivo, reflog, etc.).
+- Algunos flujos finos requieren la terminal.
+
+<Callout type="info">
+  Lo mejor de ambos mundos: usa Desktop para el día a día y la terminal cuando necesites potencia. No es "una cosa o la otra".
+</Callout>
+
+## Instalar GitHub Desktop
+
+Descárgala desde [desktop.github.com](https://desktop.github.com). Está disponible para **Windows** y **macOS** (no hay versión oficial para Linux).
+
+También puedes instalarla con gestores de paquetes:
+
+```powershell
+winget install GitHub.GitHubDesktop
+```
+
+```bash
+brew install --cask github
+```
+
+## Iniciar sesión
+
+Al abrirla por primera vez:
+
+1. Pulsa **Sign in to GitHub.com**.
+2. Autoriza la aplicación en el navegador.
+3. Listo: la app ya tiene acceso a tu cuenta.
+
+Si prefieres no iniciar sesión, puedes configurar tu nombre y correo manualmente en **File → Options → Git**, pero conectar la cuenta es lo recomendado.
+
+## Conociendo la interfaz
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  Current Repository ▼   Current Branch ▼   [Fetch/Pull]  │  ← Barra superior
+├───────────────────┬─────────────────────────────────────┤
+│  Changes          │                                     │
+│  ☑ archivo1.js    │      DIFF DEL ARCHIVO               │
+│  ☑ estilos.css    │      (líneas rojas = borradas,      │
+│                   │       verdes = añadidas)            │
+│  [ Summary ]      │                                     │
+│  [ Description ]  │                                     │
+│  [Commit to main] │                                     │
+├───────────────────┴─────────────────────────────────────┤
+│  History  |  Changes                                     │  ← Pestañas
+└─────────────────────────────────────────────────────────┘
+```
+
+Elementos clave:
+
+- **Current Repository**: el repo en el que estás trabajando.
+- **Current Branch**: la rama actual.
+- **Changes**: los archivos modificados, con casillas para elegir qué entra en el commit.
+- **Diff**: la vista de diferencias del archivo seleccionado.
+- **Summary / Description**: el mensaje de commit.
+- **Commit to …**: el botón para confirmar.
+- **History**: el historial de commits de la rama.
+- **Fetch origin / Pull / Push**: sincronización con GitHub.
+
+## Añadir un repositorio
+
+Tienes tres formas:
+
+1. **Clone a repository**: clonar desde GitHub (tus repos o cualquier URL).
+2. **Create a new repository**: crear uno nuevo local (y opcionalmente publicarlo).
+3. **Add an existing repository**: abrir una carpeta que ya es un repo Git.
+
+Las veremos en la próxima lección.
+
+## Atajos útiles
+
+| Atajo | Acción |
+| --- | --- |
+| `Ctrl/Cmd + Enter` | Hacer commit |
+| `Ctrl/Cmd + P` | Push |
+| `Ctrl/Cmd + Shift + P` | Pull |
+| `Ctrl/Cmd + R` | Ver el repositorio en GitHub |
+| `Ctrl/Cmd + N` | Nuevo repositorio |
+
+## Aprende los tres paneles
+
+GitHub Desktop no tiene comandos: tiene tres paneles que se repiten en cada pantalla. Arrastra cada elemento a su función.
+
+<DragLab
+  mode="parejas"
+  title="Cada parte de la interfaz"
+  instruction="Une cada control con lo que hace. Si te pierdes, vuelve a la captura de la sección de arriba."
+  success="Interfaz dominada. El resto de la lección es solo clics."
+  seed="desktop-intro-parejas"
+  pairs={[
+    { id: 'changes', a: 'Changes', aIcon: '📋', b: 'Los archivos que has modificado y aún no has confirmado', bIcon: '✏️' },
+    { id: 'history', a: 'History', aIcon: '🕘', b: 'Todos los commits del repositorio, con autor y mensaje', bIcon: '📸' },
+    { id: 'branch', a: 'Current Branch', aIcon: '🌿', b: 'La rama en la que estás trabajando ahora mismo', bIcon: '📍' },
+    { id: 'diff', a: 'Diff view', aIcon: '🔍', b: 'Línea a línea, qué has cambiado respecto al último commit', bIcon: '🧾' },
+    { id: 'push', a: 'Push origin', aIcon: '☁️', b: 'Enviar tus commits al repositorio remoto', bIcon: '🚀' },
+    { id: 'menu', a: 'Repository menu', aIcon: '☰', b: 'Crear ramas, abrir en terminal o ver el repo en GitHub', bIcon: '⚙️' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba GitHub Desktop"
+  questions={[
+    {
+      q: '¿Qué es GitHub Desktop?',
+      options: [
+        'Un servidor de Git',
+        'Un cliente de Git con interfaz gráfica',
+        'Un lenguaje de programación',
+        'Una extensión de VS Code',
+      ],
+      answer: 1,
+      explanation: 'Es la app oficial de GitHub que ejecuta Git por debajo, pero con botones, listas y diffs visuales.',
+    },
+    {
+      q: '¿En qué sistemas operativos hay versión oficial?',
+      options: ['Windows, macOS y Linux', 'Solo Windows', 'Windows y macOS', 'Solo Linux'],
+      answer: 2,
+      explanation: 'Hay versión oficial para Windows y macOS; para Linux no existe soporte oficial.',
+    },
+    {
+      q: '¿Qué muestra la vista de diff?',
+      options: [
+        'El código compilado',
+        'Las líneas añadidas (verde) y eliminadas (rojo)',
+        'Los repositorios remotos',
+        'Las ramas disponibles',
+      ],
+      answer: 1,
+      explanation: 'El diff resalta en verde lo añadido y en rojo lo eliminado, ideal para revisar antes de commitear.',
+    },
+  ]}
+/>
+
+En la siguiente lección haremos el flujo completo: clonar, commitear, publicar y sincronizar.

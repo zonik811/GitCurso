@@ -1,0 +1,66 @@
+---
+interface Question {
+  q: string;
+  options: string[];
+  answer: number;
+  explanation?: string;
+}
+
+interface Props {
+  title?: string;
+  questions: Question[];
+}
+
+const { title = 'Pon a prueba lo aprendido', questions } = Astro.props;
+---
+
+<section class="quiz" data-quiz>
+  <header class="quiz-head">
+    <span class="quiz-ico">🧪</span>
+    <h3>{title}</h3>
+  </header>
+
+  {
+    questions.map((item, qi) => (
+      <div class="quiz-q" data-answer={item.answer}>
+        <p class="quiz-prompt">
+          <span class="quiz-num">{qi + 1}</span>
+          <span>{item.q}</span>
+        </p>
+        <div class="quiz-options">
+          {item.options.map((opt, oi) => (
+            <button class="quiz-opt" type="button" data-index={oi}>
+              <span class="quiz-letter">{String.fromCharCode(65 + oi)}</span>
+              <span>{opt}</span>
+            </button>
+          ))}
+        </div>
+        {item.explanation && <p class="quiz-exp" hidden>{item.explanation}</p>}
+      </div>
+    ))
+  }
+</section>
+
+<script>
+  document.querySelectorAll('[data-quiz]').forEach((quiz) => {
+    const questions = quiz.querySelectorAll('.quiz-q');
+    questions.forEach((q) => {
+      const answer = Number((q as HTMLElement).dataset.answer);
+      const options = q.querySelectorAll('.quiz-opt');
+      const exp = q.querySelector('.quiz-exp');
+      options.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number((btn as HTMLElement).dataset.index);
+          options.forEach((o) => ((o as HTMLButtonElement).disabled = true));
+          if (idx === answer) {
+            btn.classList.add('correct');
+          } else {
+            btn.classList.add('wrong');
+            options[answer]?.classList.add('correct');
+          }
+          if (exp) (exp as HTMLElement).hidden = false;
+        });
+      });
+    });
+  });
+</script>

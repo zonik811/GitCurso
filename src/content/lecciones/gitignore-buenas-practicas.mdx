@@ -1,0 +1,242 @@
+---
+title: .gitignore y buenas prácticas
+description: Ignora archivos correctamente, escribe buenos mensajes de commit y mantén un historial limpio.
+---
+
+import Callout from '../../components/Callout.astro';
+import GitignoreTester from '../../components/GitignoreTester.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Saber comandos es la mitad. La otra mitad es **usarlos bien**. Estas convenciones separan a quien usa Git de quien lo domina.
+
+## El archivo `.gitignore`
+
+Evita versionar archivos que no deben estar en el repo: dependencias, compilados, secretos, archivos del sistema.
+
+Crea un `.gitignore` en la raíz del proyecto:
+
+```text
+# Dependencias
+node_modules/
+vendor/
+
+# Compilados
+dist/
+build/
+*.exe
+*.o
+
+# Entorno y secretos
+.env
+.env.local
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+```
+
+### Reglas de patrones
+
+```text
+*.log          # todos los .log
+!importante.log # excepción: no ignorar este
+build/         # carpeta build
+/temp.txt      # solo en la raíz
+**/cache/      # en cualquier nivel
+```
+
+## Practica: ¿se ignora este archivo?
+
+Escribe una ruta (o pulsa un ejemplo) y edita las reglas para ver al instante si Git ignoraría ese archivo y **qué regla** lo decide. Fíjate en cómo `!importante.log` vuelve a incluir un archivo que `*.log` había ignorado.
+
+<GitignoreTester />
+
+### Si ya subiste un archivo ignorado
+
+`.gitignore` no afecta archivos ya rastreados. Hay que quitarlos del índice:
+
+```bash
+git rm --cached archivo-secreto.env
+git commit -m "Deja de rastrear archivo de entorno"
+```
+
+<Callout type="danger">
+  **Nunca subas secretos** (contraseñas, tokens, claves API). Si lo haces por error, no basta con borrarlos en un commit nuevo: quedan en el historial. Hay que rotar la credencial y limpiar la historia con `git filter-repo`.
+</Callout>
+
+Puedes generar plantillas de `.gitignore` en [gitignore.io](https://www.toptal.com/developers/gitignore) o al crear el repo en GitHub.
+
+## Buenas prácticas con commits
+
+### 1. Commits atómicos
+
+Cada commit debe ser **un cambio coherente y completo**. Si tu mensaje necesita un "y", probablemente son dos commits.
+
+```text
+❌ Añade login y corrige el footer y actualiza dependencias
+✅ Añade formulario de login
+✅ Corrige el color del footer
+```
+
+### 2. Mensajes claros
+
+Convención muy extendida (**Conventional Commits**):
+
+```text
+<tipo>: <descripción corta>
+
+[cuerpo opcional]
+
+[footer opcional]
+```
+
+Tipos comunes:
+
+| Tipo | Uso |
+| --- | --- |
+| `feat` | Nueva funcionalidad |
+| `fix` | Corrección de bug |
+| `docs` | Documentación |
+| `style` | Formato (sin cambiar lógica) |
+| `refactor` | Reestructurar sin cambiar comportamiento |
+| `test` | Tests |
+| `chore` | Tareas de mantenimiento |
+
+```text
+feat: añade autenticación con Google
+fix: corrige el cálculo del IVA en ofertas
+docs: actualiza instrucciones de instalación
+```
+
+- Primera línea ≤ 50 caracteres, en **imperativo** ("añade", no "añadido").
+- Explica el **por qué**, no solo el **qué**.
+
+### 3. No versiones lo que no debes
+
+- Dependencias (`node_modules`): se reinstalan con `npm install`.
+- Archivos generados: se regeneran.
+- Configuración personal del editor.
+- Datos binarios grandes (usa **Git LFS** si es imprescindible).
+
+## Ramas: pequeñas y de vida corta
+
+- Una rama por tarea: `feature/`, `fix/`, `docs/`, `chore/`.
+- Vive días, no meses.
+- Actualízala con `main` con frecuencia.
+- Bórrala tras fusionarla.
+
+## Mantener un historial limpio
+
+- Haz `pull --rebase` antes de subir, para evitar commits de merge innecesarios.
+- Usa `squash` para combinar commits de "fix typo" antes de abrir un PR.
+- No reescribas historia ya publicada en ramas compartidas.
+- Commitea a menudo, pero con sentido.
+
+## Protege tu trabajo
+
+```bash
+# Antes de experimentar con comandos peligrosos, crea una rama
+git switch -c respaldo-antes-del-lio
+```
+
+Y recuerda: `git reflog` casi siempre te salva.
+
+## Checklist antes de cada push
+
+- [ ] `git status` está limpio o solo con lo que quiero subir.
+- [ ] Revisé `git diff --staged` (o el diff en Desktop).
+- [ ] No hay secretos ni archivos basura.
+- [ ] El mensaje de commit es claro.
+- [ ] Hice `pull` para estar al día.
+- [ ] Los tests pasan (si existen).
+
+## Resumen de higiene de repos
+
+```text
+✅ .gitignore bien configurado desde el inicio
+✅ Commits atómicos con mensajes claros
+✅ Ramas cortas y con nombres descriptivos
+✅ Pull antes de push
+✅ Nunca subir secretos
+✅ Bórralas ramas fusionadas
+```
+
+## ¿Qué entra en el repositorio?
+
+Un buen .gitignore no solo te ahorra espacio: evita que subas secretos. Coloca cada archivo en la categoría que le corresponde.
+
+<DragLab
+  mode="zonas"
+  title="Tres tipos de archivo, tres decisiones"
+  instruction="Código que escribes, configuración que no debe salir nunca y archivos que se regeneran solos."
+  success="Repositorio limpio y sin secretos filtrados."
+  seed="gitignore-zonas"
+  zones={[
+    { id: 'repo', label: 'Se versiona', icon: '💾', hint: 'Código y configuración que forman parte del proyecto.' },
+    { id: 'secreto', label: 'Nunca en el repo', icon: '🔒', hint: 'Credenciales. Si lo subes, hay que rotarlo ya.' },
+    { id: 'build', label: 'Se regenera', icon: '🗑️', hint: 'Se reconstruye con un comando. No ocupan sitio.' },
+  ]}
+  pool={[
+    { id: 'src', label: 'src/', answer: 'repo', icon: '💾' },
+    { id: 'readme', label: 'README.md', answer: 'repo', icon: '💾' },
+    { id: 'lock', label: 'package-lock.json', answer: 'repo', icon: '💾' },
+    { id: 'env', label: '.env', answer: 'secreto', icon: '🔒' },
+    { id: 'rsa', label: 'id_rsa', answer: 'secreto', icon: '🔒' },
+    { id: 'key', label: 'clave-api.txt', answer: 'secreto', icon: '🔒' },
+    { id: 'mod', label: 'node_modules/', answer: 'build', icon: '🗑️' },
+    { id: 'dist', label: 'dist/', answer: 'build', icon: '🗑️' },
+    { id: 'log', label: 'debug.log', answer: 'build', icon: '🗑️' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba las buenas prácticas"
+  questions={[
+    {
+      q: '¿Qué hace un archivo `.gitignore`?',
+      options: [
+        'Borra archivos del proyecto',
+        'Indica qué archivos Git no debe rastrear',
+        'Comprime el repositorio',
+        'Crea ramas automáticamente',
+      ],
+      answer: 1,
+      explanation: 'Lista patrones de archivos que Git debe ignorar: dependencias, compilados, secretos, etc.',
+    },
+    {
+      q: 'Ya subiste un secreto y lo añadiste a `.gitignore`. ¿Es suficiente?',
+      options: [
+        'Sí, desaparece del historial',
+        'No: sigue rastreado, hay que quitarlo con git rm --cached y rotar la credencial',
+        'Sí, si haces un commit nuevo',
+        'No se puede arreglar nunca',
+      ],
+      answer: 1,
+      explanation: '.gitignore no afecta archivos ya rastreados. Hay que quitarlos del índice y, por seguridad, rotar el secreto.',
+    },
+    {
+      q: '¿Qué es un commit atómico?',
+      options: [
+        'Uno que cambia todo el proyecto a la vez',
+        'Uno que representa un único cambio coherente',
+        'Uno sin mensaje',
+        'Uno con cientos de archivos',
+      ],
+      answer: 1,
+      explanation: 'Un commit atómico es un cambio completo y con sentido propio, fácil de describir y de revertir.',
+    },
+  ]}
+/>
+
+En la última lección veremos flujos de trabajo de equipo y comandos avanzados.

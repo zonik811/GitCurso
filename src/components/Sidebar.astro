@@ -1,0 +1,147 @@
+---
+import { curriculum, flatLessons } from '../data/curriculum';
+
+interface Props {
+  current?: string;
+}
+const { current } = Astro.props;
+
+const numberFor = (slug: string) =>
+  (flatLessons.findIndex((l) => l.slug === slug) + 1).toString().padStart(2, '0');
+
+const isActiveModule = (moduleId: string) =>
+  curriculum
+    .find((m) => m.id === moduleId)
+    ?.lessons.some((l) => l.slug === current) ?? false;
+---
+
+<aside class="sidebar" id="sidebar">
+  <a href="/" class="brand">
+    <span class="logo">⑂</span>
+    <span>
+      Curso de Git
+      <small>de cero a colaborar</small>
+    </span>
+  </a>
+
+  <div class="search">
+    <span class="search-ico" aria-hidden="true">🔍</span>
+    <input
+      id="lessonSearch"
+      class="search-input"
+      type="search"
+      placeholder="Buscar lección…  ( / )"
+      aria-label="Buscar lección"
+      autocomplete="off"
+    />
+  </div>
+  <p class="search-empty" id="searchEmpty" style="display:none">Sin resultados</p>
+
+  <nav aria-label="Lecciones" id="lessonNav">
+    {
+      curriculum.map((module) => (
+        <details class="nav-module" open={isActiveModule(module.id)}>
+          <summary>
+            <span class="mod-icon">{module.icon}</span>
+            <span>{module.title}</span>
+            <span class="count">{module.lessons.length}</span>
+          </summary>
+          <ul class="nav-lessons">
+            {module.lessons.map((lesson) => (
+              <li>
+                <a
+                  href={`/lecciones/${lesson.slug}/`}
+                  class={lesson.slug === current ? 'active' : ''}
+                  data-search={`${lesson.title} ${lesson.description} ${module.title}`}
+                  data-lesson-link={lesson.slug}
+                >
+                  <span class="num">{numberFor(lesson.slug)}</span>
+                  <span class="lesson-title">{lesson.title}</span>
+                  <span class="done-check" aria-hidden="true">✓</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))
+    }
+  </nav>
+
+  <div class="nav-resources">
+    <p class="nav-resources-title">Recursos</p>
+    <a href="/chuleta/">📋 Chuleta de comandos</a>
+    <a href="/glosario/">📖 Glosario</a>
+    <a href="/lecciones/">🗂️ Temario completo</a>
+  </div>
+</aside>
+
+<script>
+  const input = document.getElementById('lessonSearch') as HTMLInputElement | null;
+  if (input) {
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const esc = (s: string) =>
+      s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+    const highlight = (text: string, raw: string) => {
+      if (!raw) return esc(text);
+      const i = text.toLowerCase().indexOf(raw.toLowerCase());
+      if (i < 0) return esc(text);
+      return (
+        esc(text.slice(0, i)) +
+        '<mark>' +
+        esc(text.slice(i, i + raw.length)) +
+        '</mark>' +
+        esc(text.slice(i + raw.length))
+      );
+    };
+
+    const modules = Array.from(document.querySelectorAll<HTMLElement>('.nav-module'));
+    const empty = document.getElementById('searchEmpty');
+    const originals = new Map<HTMLElement, string>();
+    document.querySelectorAll<HTMLElement>('.lesson-title').forEach((el) => {
+      originals.set(el, el.textContent || '');
+    });
+
+    input.addEventListener('input', () => {
+      const raw = input.value.trim();
+      const q = norm(raw);
+      let total = 0;
+
+      modules.forEach((mod) => {
+        const summary = mod.querySelector('summary');
+        const modMatch = q !== '' && norm(summary?.textContent ?? '').includes(q);
+        let visible = 0;
+
+        mod.querySelectorAll<HTMLElement>('.nav-lessons li').forEach((li) => {
+          const a = li.querySelector<HTMLElement>('a');
+          const titleEl = li.querySelector<HTMLElement>('.lesson-title');
+          const text = norm(a?.dataset.search ?? '');
+          const show = q === '' || modMatch || text.includes(q);
+          li.style.display = show ? '' : 'none';
+          if (titleEl) {
+            const original = originals.get(titleEl) ?? '';
+            titleEl.innerHTML = q !== '' && show ? highlight(original, raw) : esc(original);
+          }
+          if (show) visible++;
+        });
+
+        mod.style.display = visible ? '' : 'none';
+        if (q !== '' && visible) mod.setAttribute('open', '');
+        total += visible;
+      });
+
+      if (empty) empty.style.display = total ? 'none' : '';
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        input.focus();
+      }
+    });
+  }
+</script>
