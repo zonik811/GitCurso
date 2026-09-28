@@ -40,4 +40,11 @@ export const glossary: GlossaryTerm[] = [
   { term: 'GitHub Flow', def: 'Flujo simple: main siempre desplegable, una rama por cambio y Pull Request.' },
   { term: 'Trunk-Based', def: 'Flujo en el que todos integran con frecuencia en main, con ramas muy cortas y CI.' },
   { term: 'CI (Integración Continua)', def: 'Automatización que compila y prueba el código en cada push o Pull Request.' },
+  { term: 'GitHub Actions', def: 'Sistema de CI/CD integrado en GitHub: ejecuta tareas automáticas en runners cuando ocurre algo en el repositorio.' },
+  { term: 'Workflow (Actions)', def: 'Archivo YAML en .github/workflows/ que define qué eventos disparan qué jobs y steps.' },
+  { term: 'Job', def: 'Conjunto de steps que se ejecuta en un runner. Por defecto, varios jobs corren en paralelo.' },
+  { term: 'Step', def: 'Un paso dentro de un job: una acción reutilizable (uses) o un comando de shell (run).' },
+  { term: 'Runner', def: 'La máquina virtual donde GitHub ejecuta un job (ubuntu-latest, windows-latest, macos-latest).' },
+  { term: 'Action (reutilizable)', def: 'Pieza de código publicada por GitHub o la comunidad que se invoca con uses, por ejemplo actions/checkout.' },
+  { term: 'Secret', def: 'Valor cifrado (token, clave de API) que se usa en los workflows con ${{ secrets.NOMBRE }} sin aparecer en el código.' },
 ];

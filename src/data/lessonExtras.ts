@@ -203,6 +203,24 @@ export const lessonExtras: Record<string, LessonExtra> = {
       'Comenta una línea de un PR con una sugerencia.',
     ],
   },
+  'github-actions': {
+    objectives: [
+      'Entender qué es la CI/CD y para qué sirve',
+      'Leer y escribir un workflow en YAML',
+      'Distinguir uses de run y usar secretos con seguridad',
+    ],
+    summary: [
+      'Un workflow es un YAML en .github/workflows/ con eventos, jobs y steps.',
+      'on dispara; runs-on elige el runner; uses trae acciones y run ejecuta comandos.',
+      'Los jobs corren en paralelo salvo que los encadenes con needs.',
+      'Las claves van en secrets, nunca en el YAML.',
+    ],
+    exercises: [
+      'Añade un workflow que ejecute npm test en cada push a main.',
+      'Añade workflow_dispatch y lánzalo a mano desde la pestaña Actions.',
+      'Prueba una matriz con dos versiones de Node y observa los jobs.',
+    ],
+  },
   'desktop-introduccion': {
     objectives: [
       'Instalar y conectar GitHub Desktop',

@@ -113,4 +113,19 @@ export const cheatsheet: CheatCategory[] = [
       { cmd: 'git count-objects -vH', desc: 'Muestra el tamaño del repositorio.' },
     ],
   },
+  {
+    title: 'GitHub Actions',
+    icon: '🤖',
+    items: [
+      { cmd: 'gh workflow list', desc: 'Lista los workflows del repositorio.' },
+      { cmd: 'gh run list', desc: 'Muestra las ejecuciones recientes.' },
+      { cmd: 'gh run watch', desc: 'Sigue una ejecución en vivo desde la terminal.' },
+      { cmd: 'gh run view --log-failed', desc: 'Muestra el log del paso que falló.' },
+      { cmd: 'on: [push, pull_request]', desc: 'Eventos que disparan el workflow.' },
+      { cmd: 'runs-on: ubuntu-latest', desc: 'Runner donde se ejecuta el job.' },
+      { cmd: 'uses: actions/checkout@v4', desc: 'Descarga tu repositorio en el runner.' },
+      { cmd: 'run: npm test', desc: 'Ejecuta un comando de shell en un step.' },
+      { cmd: '${{ secrets.TOKEN }}', desc: 'Usa un secreto cifrado sin exponerlo en el código.' },
+    ],
+  },
 ];

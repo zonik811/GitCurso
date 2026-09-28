@@ -1,0 +1,204 @@
+---
+title: GitHub Actions
+description: "Automatiza tests, builds y despliegues con workflows en YAML (eventos, jobs, steps, secretos y badges)."
+---
+
+import Callout from '../../components/Callout.astro';
+import Quiz from '../../components/Quiz.astro';
+import DragLab from '../../components/DragLab.astro';
+
+
+Ya sabes subir código a GitHub. El siguiente salto es que GitHub trabaje **por ti**: que ejecute los tests, compile el proyecto o lo despliegue solo, cada vez que tocas el repositorio. Eso es **GitHub Actions**.
+
+## ¿Qué es GitHub Actions?
+
+Es el sistema de **CI/CD integrado en GitHub**. Ejecuta tareas automáticas en máquinas virtuales que GitHub te presta, llamadas **runners**, cuando ocurre algo en tu repositorio.
+
+Antes montabas un servidor aparte (Jenkins, Travis, CircleCI). Ahora basta con un archivo de texto dentro del propio repo.
+
+- **CI (Integración Continua)**: probar y compilar cada cambio.
+- **CD (Entrega/Despliegue Continuo)**: publicar automáticamente lo que ya pasó las pruebas.
+- Es **gratis** en repositorios públicos; en privados tienes una cuota de minutos al mes.
+
+<Callout type="tip">
+  Un workflow es tu red de seguridad: si un test falla, te enteras en el Pull Request, antes de fusionar. Nunca más rompes `main` sin querer.
+</Callout>
+
+## Conceptos clave
+
+| Concepto | Qué es |
+| --- | --- |
+| **Workflow** | Un archivo YAML en `.github/workflows/` que define la automatización completa. |
+| **Evento (`on`)** | Lo que dispara el workflow: un `push`, un `pull_request`, un horario… |
+| **Job** | Un conjunto de pasos que se ejecuta en un runner. Por defecto, varios jobs corren **en paralelo**. |
+| **Step** | Un paso dentro de un job: o un comando (`run`) o una acción reutilizable (`uses`). |
+| **Runner** | La máquina virtual donde corre el job (`ubuntu-latest`, `windows-latest`, `macos-latest`). |
+| **Action** | Una pieza de código reutilizable, publicada por GitHub o por la comunidad. |
+| **Secret** | Un valor cifrado (tokens, claves de API) que nunca se escribe en el código. |
+
+## Tu primer workflow
+
+Todos los workflows viven en la carpeta `.github/workflows/`. Este es un `ci.yml` que compila y prueba un proyecto de Node:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+```
+
+Leyéndolo de arriba abajo:
+
+- **`name`**: el nombre que verás en la pestaña *Actions*.
+- **`on`**: cuándo se dispara. Aquí, en cada `push` a `main` y en cada Pull Request.
+- **`jobs`**: la lista de trabajos. Tenemos uno, `build`.
+- **`runs-on`**: el sistema operativo del runner.
+- **`steps`**: la secuencia de pasos, en orden.
+
+La diferencia entre los dos tipos de paso es la clave de todo:
+
+<Callout type="info">
+  `uses` ejecuta una **acción ya hecha** (`actions/checkout` descarga tu repo). `run` ejecuta un **comando de shell** que tú escribes (`npm test`). Si existe una acción para algo, úsala; si no, `run`.
+</Callout>
+
+## Los eventos que lo disparan
+
+El bloque `on` es el interruptor. Estos son los más útiles:
+
+| Evento | Se dispara cuando… |
+| --- | --- |
+| `push` | Subes commits. Puedes filtrar por rama con `branches: [main]`. |
+| `pull_request` | Alguien abre o actualiza un Pull Request. |
+| `schedule` | Según un horario en formato cron. |
+| `workflow_dispatch` | Le das al botón **Run workflow** a mano. |
+| `release` | Publicas una versión. |
+
+```yaml
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # cada lunes a las 3:00
+  workflow_dispatch:       # botón manual en la interfaz
+```
+
+<Callout type="tip">
+  `workflow_dispatch` es oro para depurar: te deja lanzar el workflow cuando quieras, sin esperar a hacer un push.
+</Callout>
+
+## Secretos y variables
+
+Nunca pongas una clave en el YAML: cualquiera que vea el repo la vería. Guárdala en **Settings → Secrets and variables → Actions** y úsala así:
+
+```yaml
+- run: npm run deploy
+  env:
+    API_KEY: ${{ secrets.API_KEY }}
+```
+
+Los secretos se muestran como `***` en los logs.
+
+<Callout type="warn">
+  Un secret no es magia: si tu script lo imprime o lo pasa a un servicio externo, se filtra. Úsalo solo en variables de entorno y evita hacer `echo`.
+</Callout>
+
+## Matrices y caché
+
+Para probar varias versiones de un lenguaje, usa una **matriz** y GitHub crea un job por combinación:
+
+```yaml
+strategy:
+  matrix:
+    node: [18, 20, 22]
+```
+
+Y para no descargar dependencias en cada ejecución, activa la **caché**:
+
+```yaml
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20
+    cache: npm
+```
+
+## El badge de estado
+
+Puedes mostrar en tu README si el proyecto está en verde:
+
+```markdown
+![CI](https://github.com/usuario/repo/actions/workflows/ci.yml/badge.svg)
+```
+
+## Practica: ordena lo que hace el pipeline
+
+Cada vez que haces `push`, GitHub Actions ejecuta estos pasos en orden. Colócalos bien y entenderás la anatomía de un workflow.
+
+<DragLab
+  mode="orden"
+  title="Anatomía de un workflow de CI"
+  instruction="Seis pasos, del disparador al resultado. Piensa en qué necesita cada uno antes de poder ejecutarse."
+  success="Pipeline en verde. Ya sabes leer un workflow de arriba abajo."
+  seed="actions-orden"
+  items={[
+    { id: 'a1', code: 'on: push', label: 'El workflow se dispara al subir commits', icon: '🔔' },
+    { id: 'a2', code: 'actions/checkout', label: 'Descarga tu repositorio en el runner', icon: '📥' },
+    { id: 'a3', code: 'actions/setup-node', label: 'Prepara la versión de Node del proyecto', icon: '🟩' },
+    { id: 'a4', code: 'npm ci', label: 'Instala las dependencias exactas del lockfile', icon: '📦' },
+    { id: 'a5', code: 'npm run build', label: 'Compila el proyecto', icon: '🏗️' },
+    { id: 'a6', code: 'npm test', label: 'Ejecuta las pruebas y marca el job en rojo si fallan', icon: '✅' },
+  ]}
+/>
+
+<Quiz
+  title="Comprueba GitHub Actions"
+  questions={[
+    {
+      q: '¿Dónde vive un workflow de GitHub Actions?',
+      options: ['.github/workflows/', 'actions/', '.github/ci/', 'En la raíz del repo'],
+      answer: 0,
+      explanation: 'Los workflows son archivos YAML dentro de .github/workflows/. GitHub los detecta automáticamente.',
+    },
+    {
+      q: '¿Cuál es la diferencia entre uses y run en un step?',
+      options: [
+        'uses ejecuta una acción reutilizable; run ejecuta un comando de shell',
+        'uses es para Linux y run para Windows',
+        'run solo sirve para tests',
+        'Son sinónimos',
+      ],
+      answer: 0,
+      explanation: 'uses trae una acción ya publicada (como actions/checkout); run ejecuta un comando que tú escribes.',
+    },
+    {
+      q: '¿Qué evento usarías para lanzar un workflow a mano desde la interfaz?',
+      options: ['push', 'schedule', 'workflow_dispatch', 'release'],
+      answer: 2,
+      explanation: 'workflow_dispatch añade un botón "Run workflow" para ejecutarlo cuando quieras, muy útil para depurar.',
+    },
+    {
+      q: '¿Dónde debes guardar una clave de API para que no se vea en el código?',
+      options: [
+        'En el propio archivo ci.yml',
+        'En un secret de Settings → Secrets and variables → Actions',
+        'En un comentario del README',
+        'En el nombre del workflow',
+      ],
+      answer: 1,
+      explanation: 'Los secretos se cifran y se usan con ${{ secrets.NOMBRE }}; en los logs aparecen como ***.',
+    },
+  ]}
+/>
+
+Con esto cierras el círculo: tu código no solo vive en GitHub, también **se prueba y se publica solo**.

@@ -126,6 +126,13 @@ export const curriculum: Module[] = [
           'Forks, Pull Requests, issues y code review. El corazón del trabajo en equipo.',
         duration: 14,
       },
+      {
+        slug: 'github-actions',
+        title: 'GitHub Actions',
+        description:
+          'Automatiza tests, builds y despliegues con workflows en YAML: eventos, jobs, steps y secretos.',
+        duration: 12,
+      },
     ],
   },
   {
