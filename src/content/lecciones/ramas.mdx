@@ -1,43 +1,49 @@
 ---
 title: Ramas (branches)
-description: Crea, cambia y gestiona ramas con branch, checkout y switch. ¿Qué es HEAD?
+description: Crea, cambia y gestiona ramas con branch, switch y checkout. ¿Qué es HEAD? ¿Y fusionar?
 ---
 
 import Callout from '../../components/Callout.astro';
 import GitTerminal from '../../components/GitTerminal.astro';
+import GitGraph from '../../components/GitGraph.astro';
 import Quiz from '../../components/Quiz.astro';
 import DragLab from '../../components/DragLab.astro';
 
 
-Las ramas son la función estrella de Git. Permiten que varias líneas de trabajo convivan sin interferirse: una para `main`, otra para tu nueva funcionalidad, otra para un experimento.
+Las ramas son la función estrella de Git. Permiten que varias líneas de trabajo convivan sin interferirse: una para `main`, otra para tu nueva funcionalidad, otra para un experimento. En esta lección verás, con animaciones, cómo nacen, cómo se mueven y cómo se vuelven a unir.
 
 ## ¿Qué es una rama?
 
-Una rama es simplemente un **puntero móvil a un commit**. No es una copia de los archivos: es un nombre que apunta a un punto del historial. Por eso crear una rama en Git es instantáneo y barato.
+Una rama es simplemente un **puntero móvil a un commit**. No es una copia de los archivos: es una etiqueta que apunta a un punto del historial. Por eso crear una rama en Git es instantáneo y no ocupa espacio, aunque el proyecto pese gigabytes.
 
-```text
-        main
-          │
-          ▼
-   A ──► B ──► C
-```
+Cuando haces commits en una rama, su etiqueta avanza sola al commit más reciente. Mira cómo ocurre de verdad:
 
-Cuando haces commits en una rama, el puntero avanza solo.
+<GitGraph
+  title="Cómo nacen y se mueven las ramas"
+  intro="Empezamos con un repositorio vacío. Pulsa ▶ Reproducir y observa cómo main y feature se separan y luego se vuelven a unir."
+  steps={[
+    { do: 'commit', id: 'c1', msg: 'Commit base', caption: 'Todo empieza con un commit en main. La etiqueta main apunta a él y HEAD (la etiqueta azul) indica que estás ahí.' },
+    { do: 'commit', id: 'c2', msg: 'Header', caption: 'Cada commit nuevo avanza main: la etiqueta se desliza sola al commit más reciente.' },
+    { do: 'branch', name: 'feature', caption: 'git branch feature crea una rama nueva. Es gratis: solo es una etiqueta que apunta al mismo commit que main, no una copia.' },
+    { do: 'switch', name: 'feature', caption: 'git switch feature mueve HEAD a feature. A partir de ahora tus commits irán a esta rama.' },
+    { do: 'commit', id: 'c3', msg: 'Login', caption: 'Este commit avanza SOLO feature. Fíjate: main se ha quedado atrás, en el commit anterior.' },
+    { do: 'commit', id: 'c4', msg: 'Logout', caption: 'Otro commit en feature. Las dos ramas ya divergen: cada una tiene su propia línea de trabajo.' },
+    { do: 'switch', name: 'main', caption: 'git switch main devuelve HEAD a main. Tu working directory vuelve al contenido de main: los cambios de feature no están aquí.' },
+    { do: 'commit', id: 'c5', msg: 'Footer', caption: 'Puedes seguir trabajando en main sin tocar feature. Ahora main y feature tienen commits distintos.' },
+    { do: 'merge', from: 'feature', id: 'm1', msg: 'Merge feature', caption: 'git merge feature integra el trabajo de feature en main. Git crea un commit de merge (rombo) con DOS padres: une las dos líneas en una.' },
+    { do: 'delete', name: 'feature', caption: 'Con el trabajo ya integrado, git branch -d feature borra la etiqueta. Los commits siguen en el historial, alcanzables desde main.' },
+  ]}
+/>
 
 ## ¿Y qué es HEAD?
 
-`HEAD` es un puntero especial que indica **dónde estás**. Normalmente apunta a la rama en la que estás trabajando (no directamente al commit).
+`HEAD` es un puntero especial que indica **dónde estás**. Normalmente apunta a la rama en la que estás trabajando (no directamente al commit), y a través de ella al último commit.
 
-```text
-        main
-          │
-          ▼
-   A ──► B ──► C
-               ▲
-             HEAD  (estás en main, en el commit C)
-```
+- Si `HEAD` apunta a `main`, tus commits avanzan `main`.
+- Si `HEAD` apunta a `feature`, tus commits avanzan `feature`.
+- Cuando cambias de rama con `git switch`, `HEAD` se mueve y **tu working directory se actualiza** al contenido de esa rama.
 
-Cuando cambias de rama, `HEAD` se mueve y tu working directory se actualiza al contenido de esa rama.
+En la animación anterior, la etiqueta con el borde de color y el distintivo `HEAD` marca siempre dónde estás. Verás que al hacer `git switch main` el contenido cambia: `feature.txt` desaparece de tu carpeta porque ese archivo pertenece a la otra rama.
 
 ## Comandos de ramas
 
@@ -81,32 +87,58 @@ git branch -d feature-login         # borrar (solo si está fusionada)
 git branch -D feature-login         # borrar a la fuerza
 ```
 
-## Flujo típico de una funcionalidad
+## ¿Qué es fusionar (merge)?
+
+Fusionar significa **traer los commits de otra rama a la tuya**. Siempre te colocas en la rama que **recibe** y fusionas la otra:
 
 ```bash
-# 1. Asegúrate de partir de una base actualizada
-git switch main
-git pull
-
-# 2. Crea tu rama de trabajo
-git switch -c feature-carrito
-
-# 3. Trabaja y commitea
-echo "carrito" > carrito.js
-git add carrito.js
-git commit -m "Añade lógica del carrito"
-
-# 4. Sube la rama al remoto (para respaldo o PR)
-git push -u origin feature-carrito
-
-# 5. Cuando termines, vuelve a main y fusiona
-git switch main
-git merge feature-carrito
+git switch main           # te pones en la rama destino
+git merge feature         # traes feature hacia main
 ```
 
-<Callout type="tip">
-  Convención de nombres para ramas: `feature/`, `fix/`, `docs/`, `hotfix/`. Ejemplo: `feature/login-social`. Facilita saber qué es cada cosa de un vistazo.
+Git elige entre dos formas según el historial:
+
+### Fast-forward (avance rápido)
+
+Si `main` **no ha cambiado** desde que creaste `feature`, no hay nada que combinar: Git solo mueve la etiqueta `main` hasta el último commit de `feature`. No se crea ningún commit nuevo.
+
+<GitGraph
+  title="Fusión fast-forward: solo se mueve el puntero"
+  intro="main se quedó quieta mientras trabajabas en feature. Pulsa Reproducir para ver cómo el merge solo desliza main hacia adelante."
+  steps={[
+    { do: 'commit', id: 'c1', msg: 'Base', caption: 'Un commit base en main.' },
+    { do: 'branch', name: 'feature', caption: 'Creas feature apuntando al mismo commit.' },
+    { do: 'switch', name: 'feature', caption: 'HEAD pasa a feature.' },
+    { do: 'commit', id: 'c2', msg: 'Nueva función', caption: 'Trabajas y commiteas en feature. main no se ha movido.' },
+    { do: 'switch', name: 'main', caption: 'Vuelves a main para integrar.' },
+    { do: 'merge', from: 'feature', id: 'm1', msg: 'Fast-forward', caption: 'Como main no avanzó, Git solo desliza su etiqueta hasta el commit de feature. No hay commit de merge: la historia queda lineal.' },
+  ]}
+/>
+
+### Fusión con commit de merge (three-way)
+
+Si **ambas ramas avanzaron**, Git no puede limitarse a mover el puntero: crea un **commit de merge** que tiene dos padres (el último de cada rama). Es el rombo que viste en la primera animación.
+
+<Callout type="info">
+  Si las dos ramas han tocado **la misma línea** del mismo archivo, Git no puede decidir y aparece un **conflicto**. No es un error: es Git pidiéndote que elijas. Lo resolvemos en detalle en la lección de **Fusiones**.
 </Callout>
+
+## ¿Qué es `git pull`?
+
+`git pull` sirve para **traer los commits del repositorio remoto** (por ejemplo, los que subió un compañero) a tu rama local. Por dentro hace dos cosas:
+
+1. **`git fetch`**: descarga las novedades del remoto sin tocar tu trabajo.
+2. **`git merge`**: las integra en tu rama actual.
+
+Es decir, `git pull` = `fetch` + `merge`. Por eso, **antes de empezar una rama**, conviene actualizar `main`:
+
+```bash
+git switch main
+git pull                  # trae lo último del equipo
+git switch -c feature-carrito
+```
+
+Así tu rama parte de la base más reciente y evitas conflictos innecesarios. Lo veremos a fondo en la lección de **Repositorios remotos**.
 
 ## Practica las ramas
 
@@ -115,7 +147,7 @@ Esta terminal **sí entiende de ramas**. Crea un commit base y luego juega con `
 <GitTerminal title="Practica: ramas y HEAD" branches />
 
 <Callout type="info">
-  Prueba: `git init` → `git add .` → `git commit -m "Base"` → `git branch feature` → `git switch feature` → `echo "nuevo" > feature.txt` → `git add .` → `git commit -m "Trabajo en feature"` → `git switch main`. Observa que `feature.txt` **no** está en main: cada rama tiene su propia línea de trabajo.
+  Prueba: `git init` → `git add .` → `git commit -m "Base"` → `git branch feature` → `git switch feature` → `echo "nuevo" > feature.txt` → `git add .` → `git commit -m "Trabajo en feature"` → `git switch main`. Observa que `feature.txt` **no** está en main: cada rama tiene su propia línea de trabajo. Termina con `git merge feature`.
 </Callout>
 
 ## El recorrido completo de una funcionalidad
@@ -170,6 +202,28 @@ Este es el flujo que vas a repetir cientos de veces. Coloca los comandos en el o
       ],
       answer: 1,
       explanation: 'HEAD señala dónde estás: normalmente apunta a la rama actual y, a través de ella, al último commit.',
+    },
+    {
+      q: '¿Qué hace `git pull` por dentro?',
+      options: [
+        'Solo sube tus commits al remoto',
+        'fetch (descarga) + merge (integra)',
+        'Borra la rama remota',
+        'Crea una rama nueva',
+      ],
+      answer: 1,
+      explanation: 'git pull = git fetch + git merge: descarga las novedades del remoto y las integra en tu rama actual.',
+    },
+    {
+      q: 'Estás en `main` y `main` no ha cambiado desde que creaste `feature`. ¿Qué pasa al hacer `git merge feature`?',
+      options: [
+        'Se crea siempre un commit de merge',
+        'Git solo mueve el puntero main (fast-forward)',
+        'Git borra feature automáticamente',
+        'Da un conflicto seguro',
+      ],
+      answer: 1,
+      explanation: 'Si main no avanzó, la fusión es fast-forward: Git solo desliza la etiqueta main. El commit de merge solo aparece cuando ambas ramas divergen.',
     },
   ]}
 />

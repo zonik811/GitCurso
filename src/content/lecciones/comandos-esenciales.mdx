@@ -11,6 +11,22 @@ import DragLab from '../../components/DragLab.astro';
 
 Estos comandos cubren el 80% de tu uso diario de Git. Domínalos y ya podrás trabajar.
 
+## El mapa de comandos
+
+Antes de entrar en detalle, esta es la chuleta completa de la lección:
+
+| Comando | Para qué sirve |
+| --- | --- |
+| `git init` | Convierte la carpeta actual en un repositorio Git |
+| `git status` | Muestra qué ha cambiado y qué está preparado |
+| `git add` | Pasa cambios al **staging** (los deja listos) |
+| `git commit` | Guarda una foto del staging en el historial |
+| `git log` | Muestra el historial de commits |
+| `git diff` | Muestra las diferencias línea por línea |
+| `git rm` | Borra un archivo y prepara la eliminación |
+| `git mv` | Renombra un archivo y prepara el cambio |
+| `git show` | Inspecciona un commit concreto |
+
 ## `git init` — crear un repositorio
 
 Convierte una carpeta normal en un repositorio Git:
@@ -31,6 +47,8 @@ A partir de ahora Git observa esa carpeta. Para crear el repo y la carpeta a la 
 git init mi-proyecto
 ```
 
+Git solo crea una carpeta oculta `.git/` con toda la información. Si la borras, el proyecto deja de ser un repositorio (pero tus archivos siguen ahí). Volver a ejecutar `git init` sobre un repo existente **no lo borra**: solo lo reinicializa.
+
 ## `git status` — el estado actual
 
 Tu comando más usado. Muestra qué cambió, qué está preparado y qué está sin rastrear:
@@ -46,19 +64,36 @@ A  index.html       # añadido (staged)
 ?? notas.txt        # sin rastrear
 ```
 
+En la versión corta hay **dos columnas** antes del nombre: la primera es lo preparado (staging) y la segunda lo que aún está sin preparar.
+
+| Código | Significado |
+| --- | --- |
+| `??` | Archivo sin rastrear (Git aún no lo conoce) |
+| `A ` | Añadido y preparado |
+| ` M` | Modificado, pero sin preparar |
+| `M ` | Modificado y preparado |
+| `MM` | Preparado y vuelto a modificar después |
+| `D ` | Borrado y preparado |
+
 ## `git add` — preparar cambios
 
 Mueve cambios del working directory al staging:
 
-```bash
-git add archivo.txt        # un archivo
-git add carpeta/           # toda una carpeta
-git add .                  # todo lo nuevo y modificado desde la raíz
-git add -A                 # todo, incluyendo borrados
-git add "*.css"            # por patrón
-```
+| Forma | Qué hace |
+| --- | --- |
+| `git add archivo.txt` | Prepara un archivo |
+| `git add carpeta/` | Prepara toda una carpeta |
+| `git add .` | Todo lo nuevo y modificado desde el directorio actual |
+| `git add -A` | Todo el repositorio, **incluidos los borrados** |
+| `git add -u` | Solo archivos ya rastreados (ni nuevos) |
+| `git add "*.css"` | Por patrón |
+| `git add -p archivo.txt` | Por trozos (modo interactivo) |
 
-Preparar **solo partes** de un archivo (muy útil):
+<Callout type="info">
+  `git add .` y `git add -A` se parecen, pero no son iguales: `.` afecta solo a la carpeta donde estás, mientras que `-A` recorre todo el repositorio. En la raíz del proyecto hacen lo mismo.
+</Callout>
+
+Preparar **solo partes** de un archivo (muy útil cuando has mezclado dos cambios):
 
 ```bash
 git add -p archivo.txt
@@ -105,6 +140,8 @@ git log                    # historial completo
 git log --oneline          # una línea por commit
 git log --oneline --graph  # con gráfico de ramas
 git log -5                 # los últimos 5
+git log --stat             # con el resumen de archivos tocados
+git log -p                 # con las diferencias de cada commit
 git log --author="Ana"     # filtrar por autor
 git log --since="2 weeks ago"
 ```
@@ -125,6 +162,7 @@ Muestra las diferencias línea por línea:
 git diff                   # cambios sin preparar
 git diff --staged          # cambios preparados (staged)
 git diff HEAD              # todos los cambios desde el último commit
+git diff --stat            # resumen: solo archivos y líneas
 git diff main feature      # diferencias entre dos ramas
 ```
 
@@ -133,14 +171,18 @@ git diff main feature      # diferencias entre dos ramas
 + const total = precio * 1.21 * (1 - descuento);
 ```
 
+<Callout type="tip">
+  Regla de oro: `git diff` (sin más) compara **working directory contra staging**, no contra el último commit. Para ver todo lo que cambiará tu próximo commit usa `git diff HEAD`.
+</Callout>
+
 ## Practica los comandos
 
-Usa esta **terminal interactiva** para ejecutar de verdad `git init`, `git status`, `git add`, `git commit`, `git log` y `git diff`. Crea archivos con `echo "texto" > archivo` y observa el panel derecho.
+Usa esta **terminal interactiva** para ejecutar de verdad `git init`, `git status`, `git add`, `git commit`, `git log`, `git diff`, `git rm`, `git mv` y `git show`. Crea archivos con `echo "texto" > archivo` y observa el panel derecho.
 
-<GitTerminal title="Practica: comandos esenciales" />
+<GitTerminal title="Practica: comandos esenciales" advanced />
 
 <Callout type="tip">
-  Prueba esta secuencia y observa cómo cambian los tres paneles: <code>git init</code> → <code>echo "Hola" &gt; nota.txt</code> → <code>git status</code> → <code>git add .</code> → <code>git status</code> → <code>git commit -m "Primer commit"</code> → <code>git log --oneline</code>.
+  Prueba esta secuencia y observa cómo cambian los tres paneles: <code>git init</code> → <code>echo "Hola" &gt; nota.txt</code> → <code>git status -s</code> → <code>git add .</code> → <code>git status</code> → <code>git commit -m "Primer commit"</code> → <code>git log --stat</code>. Después prueba <code>git mv nota.txt apuntes.txt</code> y mira cómo <code>git status</code> detecta el renombrado.
 </Callout>
 
 ## `git rm` y `git mv` — borrar y renombrar
@@ -151,7 +193,9 @@ git rm --cached archivo.txt    # deja de rastrearlo, sin borrar el archivo
 git mv viejo.txt nuevo.txt     # renombra y prepara el cambio
 ```
 
-`git rm --cached` es clave cuando subiste por error un archivo que ahora quieres ignorar.
+- `git rm` es como borrar el archivo y hacer `git add` de la baja, todo en un paso.
+- `git rm --cached` es clave cuando subiste por error un archivo que ahora quieres ignorar: desaparece del repositorio pero se queda en tu disco.
+- `git mv` equivale a renombrar y preparar el cambio. Git detecta que el contenido es el mismo y lo muestra como `renamed:`.
 
 ## `git show` — inspeccionar un commit
 
@@ -160,6 +204,19 @@ git show a1b2c3d
 git show HEAD              # el último commit
 git show HEAD~1            # el anterior
 ```
+
+Muestra el autor, la fecha, el mensaje y los cambios de ese commit. Es `git log -p` para un solo commit.
+
+## Errores comunes
+
+| Mensaje | Qué significa | Cómo salir |
+| --- | --- | --- |
+| `fatal: not a git repository` | La carpeta no es un repo | Ejecuta `git init` |
+| `nothing to commit, working tree clean` | No hay cambios, o ya commiteaste | Revisa con `git status` |
+| `no changes added to commit` | Hay cambios pero no los preparaste | `git add .` y vuelve a commitear |
+| `pathspec 'x' did not match any files` | El nombre no existe o está mal escrito | Compruébalo con `ls` o `git status` |
+| `Aborting commit due to empty commit message` | Olvidaste el `-m` | `git commit -m "mensaje"` |
+| `Please tell me who you are` | Faltan tu nombre y correo | Configúralos con `git config` |
 
 ## Flujo completo de ejemplo
 
@@ -197,7 +254,7 @@ Un commit se escribe siempre con la misma estructura. Coloca las fichas en la te
 <DragLab
   mode="comando"
   title="Arma un git commit"
-  instruction="Arrasta las fichas a la terminal en el orden correcto. Las que sobren déjalas en las fichas: también te penalizan."
+  instruction="Arrastra las fichas a la terminal en el orden correcto. Las que sobren déjalas en el cajón: también te penalizan."
   success="Ese es el commit perfecto: verbo, mensaje y contenido."
   seed="comandos-cmd"
   items={[
@@ -207,6 +264,26 @@ Un commit se escribe siempre con la misma estructura. Coloca las fichas en la te
     { id: 'msg', code: '"Añade el carrito"' },
     { id: 'd-pull', code: 'pull', decoy: true },
     { id: 'd-log', code: 'log', decoy: true },
+  ]}
+/>
+
+## Relaciona cada comando
+
+Empareja cada comando con lo que hace. Piénsalo antes de arrastrar: la diferencia entre `add`, `commit` y `diff` es justo lo que más se confunde al empezar.
+
+<DragLab
+  mode="parejas"
+  title="Comando y su misión"
+  instruction="Arrastra cada comando hasta la descripción que le corresponde."
+  success="Perfecto: ya distingues preparar, guardar y comparar."
+  seed="comandos-parejas"
+  pairs={[
+    { id: 'p-status', a: 'git status', b: 'Ver qué ha cambiado y qué está preparado', aIcon: '🧭', bIcon: '🧭' },
+    { id: 'p-add', a: 'git add', b: 'Preparar cambios para el próximo commit', aIcon: '🥘', bIcon: '🥘' },
+    { id: 'p-commit', a: 'git commit', b: 'Guardar una foto del staging', aIcon: '📸', bIcon: '📸' },
+    { id: 'p-diff', a: 'git diff', b: 'Comparar cambios línea por línea', aIcon: '🔍', bIcon: '🔍' },
+    { id: 'p-log', a: 'git log', b: 'Ver el historial de commits', aIcon: '📜', bIcon: '📜' },
+    { id: 'p-rm', a: 'git rm', b: 'Borrar un archivo y prepararlo', aIcon: '🗑️', bIcon: '🗑️' },
   ]}
 />
 
@@ -230,6 +307,28 @@ Un commit se escribe siempre con la misma estructura. Coloca las fichas en la te
       options: ['cambios', 'arreglado', 'fix: corrige el cálculo del IVA en ofertas', 'asdf'],
       answer: 2,
       explanation: 'Un buen mensaje es específico y descriptivo. El formato Conventional Commits (tipo: descripción) es muy usado.',
+    },
+    {
+      q: '¿Qué diferencia hay entre `git add .` y `git add -A`?',
+      options: [
+        'Ninguna, son idénticos',
+        '. afecta a la carpeta actual y -A a todo el repositorio',
+        '-A solo prepara archivos nuevos',
+        '. prepara también los borrados y -A no',
+      ],
+      answer: 1,
+      explanation: '. limita el alcance al directorio actual; -A recorre todo el repositorio (incluidos borrados). En la raíz del proyecto coinciden.',
+    },
+    {
+      q: 'En `git status -s`, ¿qué significa el código `??`?',
+      options: [
+        'Un archivo preparado',
+        'Un archivo modificado',
+        'Un archivo sin rastrear',
+        'Un conflicto sin resolver',
+      ],
+      answer: 2,
+      explanation: '?? marca archivos que Git todavía no conoce. Los incluyes en el control de versiones con git add.',
     },
   ]}
 />

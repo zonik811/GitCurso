@@ -2,12 +2,13 @@
 interface Props {
   title?: string;
   branches?: boolean;
+  advanced?: boolean;
 }
 
-const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
+const { title = 'Terminal Git interactiva', branches = false, advanced = false } = Astro.props;
 ---
 
-<div class="gterm" data-gterm data-branches={branches ? '1' : '0'}>
+<div class="gterm" data-gterm data-branches={branches ? '1' : '0'} data-advanced={advanced ? '1' : '0'}>
   <div class="gterm-head">
     <span class="gterm-dots"><i></i><i></i><i></i></span>
     <span class="gterm-title">{title}</span>
@@ -60,6 +61,16 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
     <button type="button" data-cmd='git commit -m "Primer commit"'>git commit</button>
     <button type="button" data-cmd="git log --oneline">git log</button>
     <button type="button" data-cmd='echo "Hola mundo" > nota.txt'>crear archivo</button>
+    {advanced && (
+      <>
+        <button type="button" data-cmd="git status -s">status -s</button>
+        <button type="button" data-cmd="git diff --staged">diff --staged</button>
+        <button type="button" data-cmd="git log --stat">log --stat</button>
+        <button type="button" data-cmd="git show HEAD">git show</button>
+        <button type="button" data-cmd="git mv nota.txt apuntes.txt">git mv</button>
+        <button type="button" data-cmd="git rm nota.txt">git rm</button>
+      </>
+    )}
     {branches && (
       <>
         <button type="button" data-cmd="git branch feature">crear rama</button>
@@ -89,6 +100,7 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
     const branchesEl = root.querySelector('[data-branches]') as HTMLElement;
     const commitsEl = root.querySelector('[data-commits]') as HTMLElement;
     const showBranches = root.dataset.branches === '1';
+    const showAdvanced = root.dataset.advanced === '1';
 
     const S = {
       init: false,
@@ -169,25 +181,59 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
         .sort((a, b) => (a === S.current ? -1 : b === S.current ? 1 : a.localeCompare(b)));
     }
 
-    function fileStatus() {
+    /* Estado de un archivo segun las tres areas. x = indice vs HEAD (lo
+       preparado), y = working directory vs indice (lo pendiente). Se usa el
+       modelo real de Git: el indice guarda TODOS los archivos rastreados. */
+    function stateOf(n: string) {
       const b = base();
-      const all = new Set([...names(S.work), ...names(S.index), ...names(b)]);
+      const inB = n in b;
+      const inI = n in S.index;
+      const inW = n in S.work;
+      let x = ' ';
+      let y = ' ';
+      if (!inB && !inI) {
+        if (inW) {
+          x = '?';
+          y = '?';
+        }
+        return { x, y, inB, inI, inW };
+      }
+      if (inI && !inB) x = 'A';
+      else if (inI && inB && S.index[n] !== b[n]) x = 'M';
+      else if (!inI && inB) x = 'D';
+      if (inI && inW && S.work[n] !== S.index[n]) y = 'M';
+      else if (inI && !inW) y = 'D';
+      else if (!inI && inB && inW) y = '?';
+      return { x, y, inB, inI, inW };
+    }
+
+    function allFiles() {
+      return [...new Set([...names(S.work), ...names(S.index), ...names(base())])].sort();
+    }
+
+    function fileStatus() {
       const res: { name: string; status: string }[] = [];
-      for (const n of [...all].sort()) {
-        const inW = n in S.work, inI = n in S.index, inH = n in b;
+      for (const n of allFiles()) {
+        const { x, y } = stateOf(n);
         let st: string | null = null;
-        if (inI && S.index[n] !== (inH ? b[n] : undefined)) st = inH ? 'modified' : 'new';
-        else if (inW && !inI) {
-          if (!inH) st = 'untracked';
-          else if (S.work[n] !== b[n]) st = 'modified';
-        } else if (inW && inI && S.work[n] !== S.index[n]) st = 'modified';
-        else if (inH && !inW) st = 'deleted';
+        if (x === '?' || y === '?') st = 'untracked';
+        else if (y === 'D') st = 'deleted';
+        else if (y === 'M') st = 'modified';
+        else if (x === 'A') st = 'new';
+        else if (x === 'M') st = 'modified';
+        else if (x === 'D') st = 'deleted';
         if (st) res.push({ name: n, status: st });
       }
       return res;
     }
 
     const hasChanges = () => fileStatus().length > 0;
+
+    const stagedCount = () =>
+      allFiles().filter((n) => {
+        const { x } = stateOf(n);
+        return x === 'A' || x === 'M' || x === 'D';
+      }).length;
 
     function renderStatus() {
       print(`On branch ${S.current}`);
@@ -196,20 +242,31 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       const staged: string[] = [];
       const unstaged: string[] = [];
       const untracked: string[] = [];
-      const all = new Set([...names(S.work), ...names(S.index), ...names(b)]);
-      for (const n of [...all].sort()) {
-        const inW = n in S.work, inI = n in S.index, inH = n in b;
-        if (inI && S.index[n] !== (inH ? b[n] : undefined)) {
-          staged.push(`${inH ? 'modified' : 'new file'}: ${n}`);
-        } else if (inW && !inI) {
-          if (!inH) untracked.push(n);
-          else if (S.work[n] !== b[n]) unstaged.push(`modified:   ${n}`);
-        } else if (inW && inI && S.work[n] !== S.index[n]) {
-          unstaged.push(`modified:   ${n}`);
-        } else if (inH && !inW) {
-          unstaged.push(`deleted:    ${n}`);
+      const added: string[] = [];
+      const deleted: string[] = [];
+      for (const n of allFiles()) {
+        const { x, y } = stateOf(n);
+        if (x === '?') {
+          untracked.push(n);
+          continue;
         }
+        if (x === 'A') added.push(n);
+        else if (x === 'M') staged.push(`modified:   ${n}`);
+        else if (x === 'D') deleted.push(n);
+        if (y === 'M') unstaged.push(`modified:   ${n}`);
+        else if (y === 'D') unstaged.push(`deleted:    ${n}`);
+        else if (y === '?') untracked.push(n);
       }
+      /* deteccion de renombrados: un alta y una baja con el mismo contenido */
+      const usedDel = new Set<string>();
+      for (const a of added) {
+        const match = deleted.find((d) => !usedDel.has(d) && b[d] === S.index[a]);
+        if (match) {
+          usedDel.add(match);
+          staged.push(`renamed:    ${match} -> ${a}`);
+        } else staged.push(`new file:   ${a}`);
+      }
+      for (const d of deleted) if (!usedDel.has(d)) staged.push(`deleted:    ${d}`);
       print('');
       if (staged.length) {
         print('Changes to be committed:');
@@ -238,33 +295,64 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       }
     }
 
-    function renderDiff() {
+    function renderStatusShort() {
       let any = false;
-      const b = base();
-      const all = new Set([...names(S.work), ...names(S.index)]);
-      for (const n of [...all].sort()) {
-        const ref = n in S.index ? S.index[n] : b[n];
-        if (ref === undefined) continue;
-        const cur = n in S.work ? S.work[n] : undefined;
-        if (cur === ref) continue;
+      for (const n of allFiles()) {
+        const { x, y } = stateOf(n);
+        if (x === ' ' && y === ' ') continue;
+        print(`${x}${y} ${n}`);
         any = true;
-        print(`diff --git a/${n} b/${n}`);
-        print(`--- a/${n}`);
-        print(`+++ b/${n}`);
-        ref.split('\n').forEach((l) => print('- ' + l, 'gterm-del'));
-        (cur ?? '').split('\n').forEach((l) => print('+ ' + l, 'gterm-add'));
       }
-      if (!any) print('(sin cambios sin preparar)');
+      if (!any) print(curId() !== null ? '(limpio)' : '(sin commits)');
     }
 
-    function renderLog(oneline: boolean, graph: boolean) {
+    function renderDiff(staged = false, stat = false) {
+      let any = false;
+      const b = base();
+      const all = new Set([...names(S.work), ...names(S.index), ...names(b)]);
+      let files = 0;
+      let adds = 0;
+      let dels = 0;
+      for (const n of [...all].sort()) {
+        const before = staged ? (n in b ? b[n] : undefined) : n in S.index ? S.index[n] : undefined;
+        const after = staged ? (n in S.index ? S.index[n] : undefined) : n in S.work ? S.work[n] : undefined;
+        if (before === after) continue;
+        any = true;
+        files++;
+        if (stat) {
+          const oldSet = new Set((before ?? '').replace(/\n$/, '').split('\n'));
+          const newSet = new Set((after ?? '').replace(/\n$/, '').split('\n'));
+          const plus = [...newSet].filter((l) => !oldSet.has(l)).length;
+          const minus = [...oldSet].filter((l) => !newSet.has(l)).length;
+          adds += plus;
+          dels += minus;
+          print(` ${n} | ${plus + minus} ${'+'.repeat(Math.min(plus, 20))}${'-'.repeat(Math.min(minus, 20))}`);
+          continue;
+        }
+        print(`diff --git a/${n} b/${n}`);
+        print(`--- ${before === undefined ? '/dev/null' : 'a/' + n}`);
+        print(`+++ ${after === undefined ? '/dev/null' : 'b/' + n}`);
+        if (before !== undefined) before.split('\n').forEach((l) => print('- ' + l, 'gterm-del'));
+        if (after !== undefined) after.split('\n').forEach((l) => print('+ ' + l, 'gterm-add'));
+      }
+      if (!any) {
+        print(staged ? '(sin cambios preparados)' : '(sin cambios sin preparar)');
+        return;
+      }
+      if (stat) {
+        print(` ${files} file${files === 1 ? '' : 's'} changed, ${adds} insertions(+), ${dels} deletions(-)`);
+      }
+    }
+
+    function renderLog(oneline: boolean, graph: boolean, limit = Infinity, stat = false) {
       if (curId() === null) {
         print(`fatal: your current branch '${S.current}' does not have any commits yet`);
         return;
       }
       let id: string | null = curId();
       let first = true;
-      while (id) {
+      let count = 0;
+      while (id && count < limit) {
         const c = commitById(id);
         if (!c) break;
         const refs = branchesOn(id);
@@ -281,8 +369,69 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
           print('    ' + c.msg);
           print('');
         }
+        if (stat) {
+          const parent = commitById(c.parents[0] ?? null);
+          const prevSnap = parent ? parent.snapshot : {};
+          const namesChanged = new Set([...Object.keys(c.snapshot), ...Object.keys(prevSnap)]);
+          let changed = 0;
+          let plus = 0;
+          let minus = 0;
+          for (const n of namesChanged) {
+            const before = prevSnap[n] ?? '';
+            const after = c.snapshot[n] ?? '';
+            if (before === after) continue;
+            changed++;
+            const oldSet = new Set(before.replace(/\n$/, '').split('\n'));
+            const newSet = new Set(after.replace(/\n$/, '').split('\n'));
+            plus += [...newSet].filter((l) => !oldSet.has(l)).length;
+            minus += [...oldSet].filter((l) => !newSet.has(l)).length;
+          }
+          print(` ${changed} file${changed === 1 ? '' : 's'} changed, ${plus} insertions(+), ${minus} deletions(-)`);
+          print('');
+        }
         first = false;
+        count++;
         id = c.parents[0] ?? null;
+      }
+    }
+
+    function resolveRef(ref: string): Commit | undefined {
+      if (!ref || ref === 'HEAD') return commitById(curId());
+      const m = ref.match(/^HEAD~(\d+)$/);
+      if (m) {
+        let id: string | null = curId();
+        for (let i = 0; i < Number(m[1]) && id; i++) id = commitById(id)?.parents[0] ?? null;
+        return commitById(id);
+      }
+      return S.commits.find((c) => c.id === ref || c.id.startsWith(ref));
+    }
+
+    function renderShow(ref: string | undefined) {
+      const c = resolveRef(ref ?? 'HEAD');
+      if (!c) {
+        print(`fatal: ambiguous argument '${ref ?? 'HEAD'}': unknown revision`);
+        return;
+      }
+      const parent = commitById(c.parents[0] ?? null);
+      const refs = branchesOn(c.id);
+      const refStr = refs.length ? ` (${refs.join(', ')})` : '';
+      print(`commit ${c.id}${refStr}`);
+      print('Author: Tú <tu@email.com>');
+      print('Date:   hoy');
+      print('');
+      print('    ' + c.msg);
+      print('');
+      const prevSnap = parent ? parent.snapshot : {};
+      const allNames = new Set([...Object.keys(c.snapshot), ...Object.keys(prevSnap)]);
+      for (const n of [...allNames].sort()) {
+        const before = prevSnap[n];
+        const after = c.snapshot[n];
+        if (before === after) continue;
+        print(`diff --git a/${n} b/${n}`);
+        print(`--- ${before === undefined ? '/dev/null' : 'a/' + n}`);
+        print(`+++ ${after === undefined ? '/dev/null' : 'b/' + n}`);
+        if (before !== undefined) before.split('\n').forEach((l) => print('- ' + l, 'gterm-del'));
+        if (after !== undefined) after.split('\n').forEach((l) => print('+ ' + l, 'gterm-add'));
       }
     }
 
@@ -309,13 +458,14 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       });
 
       indexEl.innerHTML = '';
-      const inx = names(S.index);
-      const b = base();
-      if (!inx.length) indexEl.innerHTML = '<li class="gempty">vacío</li>';
-      inx.forEach((n) => {
-        const isNew = !(n in b);
+      const stagedFiles = allFiles()
+        .map((n) => ({ n, ...stateOf(n) }))
+        .filter((s) => s.x === 'A' || s.x === 'M' || s.x === 'D');
+      if (!stagedFiles.length) indexEl.innerHTML = '<li class="gempty">vacío</li>';
+      stagedFiles.forEach(({ n, x }) => {
+        const cls = x === 'A' ? 'new' : x === 'D' ? 'deleted' : 'modified';
         const li = document.createElement('li');
-        li.innerHTML = `<span class="gfile">${esc(n)}</span><span class="gbadge ${isNew ? 'new' : 'modified'}">${isNew ? 'A' : 'M'}</span>`;
+        li.innerHTML = `<span class="gfile">${esc(n)}</span><span class="gbadge ${cls}">${x}</span>`;
         indexEl.appendChild(li);
       });
 
@@ -356,13 +506,24 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       print('  ls / cat / rm / clear     utilidades de archivos');
       print('');
       print('  git init                  crea el repositorio');
-      print('  git status                muestra el estado');
+      print('  git status [-s]           muestra el estado (o versión corta)');
       print('  git add <archivo|.|-A>    prepara cambios');
       print('  git commit -m "mensaje"   guarda un commit');
       print('  git log [--oneline]       muestra el historial');
       print('  git diff                  cambios sin preparar');
       print('  git restore <archivo>     descarta cambios del archivo');
       print('  git restore --staged <f>  saca del staging');
+      if (showAdvanced) {
+        print('');
+        print('  git diff --staged         cambios preparados (staged)');
+        print('  git diff --stat           resumen de líneas cambiadas');
+        print('  git log -3 [--stat]       limita el historial / con resumen');
+        print('  git show [ref]            inspecciona un commit (HEAD, HEAD~1, hash)');
+        print('  git rm <archivo>          borra y prepara la eliminación');
+        print('  git rm --cached <archivo> deja de rastrear sin borrar');
+        print('  git mv <viejo> <nuevo>    renombra y prepara el cambio');
+        print('  git commit -a -m "msg"    add + commit de archivos ya rastreados');
+      }
       if (showBranches) {
         print('');
         print('  git branch                lista las ramas');
@@ -396,8 +557,9 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       }
       const dirty = hasChanges() || names(S.index).length > 0;
       S.current = name;
-      S.work = snap(curId());
-      S.index = {};
+      const s = snap(curId());
+      S.work = { ...s };
+      S.index = { ...s };
       print(`Switched to branch '${name}'`);
       if (dirty) print('# (en Git real te avisaría de los cambios sin commitear)', 'gterm-dim');
       updatePrompt();
@@ -420,8 +582,9 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       }
       if (isAncestor(cur, target)) {
         S.branches[S.current] = target;
-        S.work = snap(target);
-        S.index = {};
+        const s = snap(target);
+        S.work = { ...s };
+        S.index = { ...s };
         print(`Updating ${cur ?? '0000000'}..${target}`);
         print('Fast-forward');
         return;
@@ -435,7 +598,7 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       S.commits.push({ id, msg: `Merge branch '${name}'`, parents: [cur, target], snapshot: merged });
       S.branches[S.current] = id;
       S.work = { ...merged };
-      S.index = {};
+      S.index = { ...merged };
       print(`Merge made by the 'ort' strategy.`);
     }
 
@@ -526,26 +689,38 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
         }
 
         if (sub === 'status') {
-          renderStatus();
+          if (t.includes('-s') || t.includes('--short')) renderStatusShort();
+          else renderStatus();
         } else if (sub === 'add') {
           const args = t.slice(2);
+          const files = args.filter((a) => !a.startsWith('-'));
           if (!args.length) {
             print('Nothing specified, nothing added.');
             print("hint: Maybe you wanted to say 'git add .'?");
           } else if (args[0] === '.' || args[0] === '-A' || args[0] === '--all') {
-            names(S.work).forEach((n) => (S.index[n] = S.work[n]));
-            names(S.index).forEach((n) => {
-              if (!(n in S.work)) delete S.index[n];
-            });
+            S.index = { ...S.work };
+          } else if (args[0] === '-p' || args[0] === '--patch') {
+            const f = files[0];
+            if (f && f in S.work) {
+              S.index[f] = S.work[f];
+              print(`# modo interactivo simplificado: se prepara "${f}" entero`, 'gterm-dim');
+            } else print(`fatal: pathspec '${f ?? ''}' did not match any files`);
           } else {
-            const f = args[0];
-            if (f in S.work) S.index[f] = S.work[f];
-            else print(`fatal: pathspec '${f}' did not match any files`);
+            const f = files[0];
+            if (f && f in S.work) S.index[f] = S.work[f];
+            else print(`fatal: pathspec '${f ?? ''}' did not match any files`);
           }
         } else if (sub === 'commit') {
-          const mi = t.indexOf('-m');
+          const mi = t.findIndex((a) => a === '--message' || /^-[a-zA-Z]*m[a-zA-Z]*$/.test(a));
           const msg = mi !== -1 ? t[mi + 1] : undefined;
-          if (!names(S.index).length) {
+          if (t.includes('-a') || t.includes('-am') || t.includes('--all')) {
+            const b = base();
+            names(b).forEach((n) => {
+              if (n in S.work && S.work[n] !== b[n]) S.index[n] = S.work[n];
+              if (!(n in S.work)) delete S.index[n];
+            });
+          }
+          if (!stagedCount()) {
             print(
               hasChanges()
                 ? 'no changes added to commit (use "git add" and/or "git commit -a")'
@@ -560,20 +735,62 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
             const parent = curId();
             S.commits.push({ id, msg, parents: parent ? [parent] : [], snapshot });
             S.branches[S.current] = id;
-            S.index = {};
-            const changed = names(snapshot).filter((n) => snapshot[n] !== prev[n]).length;
+            const changedNames = new Set([...Object.keys(snapshot), ...Object.keys(prev)]);
+            const changed = [...changedNames].filter((n) => snapshot[n] !== prev[n]).length;
             const root = parent === null;
             print(`[${S.current}${root ? ' (root-commit)' : ''} ${id}] ${msg}`);
             print(` ${changed} file${changed === 1 ? '' : 's'} changed`);
           }
         } else if (sub === 'log') {
-          renderLog(t.includes('--oneline'), t.includes('--graph'));
+          const nArg = t.find((a) => /^-\d+$/.test(a));
+          renderLog(
+            t.includes('--oneline'),
+            t.includes('--graph'),
+            nArg ? Number(nArg.slice(1)) : Infinity,
+            t.includes('--stat'),
+          );
         } else if (sub === 'diff') {
-          renderDiff();
+          renderDiff(t.includes('--staged') || t.includes('--cached'), t.includes('--stat'));
+        } else if (sub === 'show') {
+          renderShow(t[2]);
+        } else if (sub === 'rm') {
+          const cached = t[2] === '--cached';
+          const f = cached ? t[3] : t[2];
+          const b = base();
+          if (!f) print('fatal: No pathspec was given. Which files should I remove?');
+          else if (cached && (f in S.index || f in b)) {
+            delete S.index[f];
+            print(`rm '${f}'`);
+          } else if (!cached && (f in S.work || f in S.index || f in b)) {
+            delete S.work[f];
+            delete S.index[f];
+            print(`rm '${f}'`);
+          } else print(`fatal: pathspec '${f}' did not match any files`);
+        } else if (sub === 'mv') {
+          const from = t[2];
+          const to = t[3];
+          const b = base();
+          if (!from || !to) print('usage: git mv <origen> <destino>');
+          else if (!(from in b) && !(from in S.index)) {
+            print(`fatal: not under version control, source=${from}, destination=${to}`);
+          } else {
+            const content = from in S.work ? S.work[from] : S.index[from];
+            if (content !== undefined) {
+              S.work[to] = content;
+              delete S.work[from];
+            }
+            delete S.index[from];
+            S.index[to] = content ?? '';
+            print(`# "${from}" renombrado a "${to}" y preparado`, 'gterm-dim');
+          }
         } else if (sub === 'restore') {
           if (t[2] === '--staged') {
             const f = t[3];
-            if (f && f in S.index) {
+            const b = base();
+            if (f && f in b) {
+              S.index[f] = b[f];
+              print(`# "${f}" devuelto al estado del último commit`, 'gterm-dim');
+            } else if (f && f in S.index) {
               delete S.index[f];
               print(`# "${f}" sacado del staging`, 'gterm-dim');
             } else print(`error: pathspec '${f ?? ''}' did not match any file(s) known to git`);
@@ -644,6 +861,11 @@ const { title = 'Terminal Git interactiva', branches = false } = Astro.props;
       printHtml('  <span class="gterm-echo">git switch feature</span>');
       printHtml('  <span class="gterm-echo">git switch main</span>');
       printHtml('  <span class="gterm-echo">git merge feature</span>');
+    }
+    if (showAdvanced) {
+      print('');
+      print('Explora el resto: escribe git status -s, git diff --staged,');
+      print('git log --stat, git show, git mv o git rm. Escribe "help" para ver todo.');
     }
     print('');
     updatePrompt();

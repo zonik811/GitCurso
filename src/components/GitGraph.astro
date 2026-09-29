@@ -1,0 +1,386 @@
+---
+interface Op {
+  do: 'commit' | 'branch' | 'switch' | 'merge' | 'delete';
+  id?: string;
+  name?: string;
+  from?: string;
+  msg?: string;
+  caption: string;
+}
+
+interface Props {
+  title?: string;
+  intro?: string;
+  steps: Op[];
+}
+
+const {
+  title = 'El grafo de las ramas, paso a paso',
+  intro = 'Un repositorio vacío. Pulsa Reproducir para ver cómo nacen y se mueven las ramas.',
+  steps = [],
+} = Astro.props;
+---
+
+<section
+  class="gitgraph"
+  data-gitgraph
+  data-steps={JSON.stringify(steps)}
+  data-intro={intro}
+>
+  <header class="gg-head">
+    <span class="gg-ico" aria-hidden="true">🌿</span>
+    <div class="gg-head-text">
+      <h3 class="gg-title">{title}</h3>
+      <p class="gg-sub">Cada punto es un commit. Cada etiqueta, una rama. La etiqueta <code>HEAD</code> es donde estás.</p>
+    </div>
+    <span class="gg-step" data-gg-step>0 / {steps.length}</span>
+  </header>
+
+  <div class="gg-stage">
+    <div class="gg-canvas" data-gg-canvas>
+      <svg class="gg-svg" data-gg-svg aria-hidden="true"></svg>
+      <div class="gg-layer" data-gg-nodes></div>
+      <div class="gg-layer" data-gg-labels></div>
+    </div>
+  </div>
+
+  <p class="gg-caption" data-gg-caption aria-live="polite">{intro}</p>
+
+  <div class="gg-controls">
+    <button class="gg-btn" type="button" data-gg-prev>← Anterior</button>
+    <button class="gg-btn gg-btn-play" type="button" data-gg-play>▶ Reproducir</button>
+    <button class="gg-btn" type="button" data-gg-next>Siguiente →</button>
+    <button class="gg-btn gg-btn-ghost" type="button" data-gg-reset>Reiniciar</button>
+    <div class="gg-dots" data-gg-dots role="tablist" aria-label="Pasos de la animación"></div>
+  </div>
+</section>
+
+<script>
+  interface GGCommit {
+    id: string;
+    parents: string[];
+    lane: number;
+    x: number;
+    msg: string;
+    merge?: boolean;
+  }
+  interface GGState {
+    caption: string;
+    commits: GGCommit[];
+    branches: Record<string, string | null>;
+    lanes: Record<string, number>;
+    head: string;
+  }
+  interface GGStep {
+    do: 'commit' | 'branch' | 'switch' | 'merge' | 'delete';
+    id?: string;
+    name?: string;
+    from?: string;
+    msg?: string;
+    caption: string;
+  }
+
+  const COL_W = 84;
+  const LANE_H = 78;
+  const PAD_X = 30;
+  const PAD_Y = 40;
+  const LANE_COLOR = [
+    'var(--accent)',
+    'var(--purple)',
+    'var(--green)',
+    'var(--orange)',
+    'var(--pink)',
+    'var(--cyan)',
+  ];
+  const laneColor = (lane: number) => LANE_COLOR[lane % LANE_COLOR.length];
+
+  function buildStates(steps: GGStep[], intro: string): GGState[] {
+    const isAncestor = (commits: GGCommit[], a: string | null, b: string | null): boolean => {
+      if (!a || a === b) return true;
+      const byId = new Map(commits.map((c) => [c.id, c]));
+      const stack: (string | null)[] = [b];
+      const seen = new Set<string>();
+      while (stack.length) {
+        const id = stack.pop();
+        if (!id || seen.has(id)) continue;
+        if (id === a) return true;
+        seen.add(id);
+        const c = byId.get(id);
+        if (c) stack.push(...c.parents);
+      }
+      return false;
+    };
+
+    const states: GGState[] = [];
+    const s = {
+      commits: [] as GGCommit[],
+      branches: { main: null } as Record<string, string | null>,
+      head: 'main',
+      lanes: { main: 0 } as Record<string, number>,
+      nextLane: 1,
+    };
+    const snapshot = (caption: string): GGState => ({
+      caption,
+      commits: s.commits.map((c) => ({ ...c, parents: [...c.parents] })),
+      branches: { ...s.branches },
+      lanes: { ...s.lanes },
+      head: s.head,
+    });
+    states.push(snapshot(intro));
+
+    for (const op of steps) {
+      if (op.do === 'commit') {
+        const parent = s.branches[s.head];
+        const lane = s.lanes[s.head] ?? 0;
+        s.commits.push({
+          id: op.id ?? 'c' + s.commits.length,
+          parents: parent ? [parent] : [],
+          lane,
+          x: s.commits.length,
+          msg: op.msg ?? '',
+        });
+        s.branches[s.head] = op.id ?? 'c' + (s.commits.length - 1);
+      } else if (op.do === 'branch' && op.name) {
+        s.branches[op.name] = s.branches[s.head];
+        if (!(op.name in s.lanes)) s.lanes[op.name] = s.nextLane++;
+      } else if (op.do === 'switch' && op.name) {
+        s.head = op.name;
+      } else if (op.do === 'merge' && op.from) {
+        const from = s.branches[op.from];
+        const cur = s.branches[s.head];
+        if (isAncestor(s.commits, cur, from)) {
+          /* fast-forward: la rama actual no ha divergido, solo se mueve el puntero */
+          s.branches[s.head] = from;
+        } else {
+          const lane = s.lanes[s.head] ?? 0;
+          const id = op.id ?? 'm' + s.commits.length;
+          s.commits.push({
+            id,
+            parents: [cur, from].filter(Boolean) as string[],
+            lane,
+            x: s.commits.length,
+            msg: op.msg ?? 'Merge ' + op.from,
+            merge: true,
+          });
+          s.branches[s.head] = id;
+        }
+      } else if (op.do === 'delete' && op.name) {
+        delete s.branches[op.name];
+      }
+      states.push(snapshot(op.caption));
+    }
+    return states;
+  }
+
+  function initGitGraph(root: HTMLElement) {
+    const steps: GGStep[] = JSON.parse(root.dataset.steps || '[]');
+    const intro = root.dataset.intro || '';
+    const states = buildStates(steps, intro);
+
+    const svg = root.querySelector('[data-gg-svg]') as SVGSVGElement;
+    const canvas = root.querySelector('[data-gg-canvas]') as HTMLElement;
+    const nodesLayer = root.querySelector('[data-gg-nodes]') as HTMLElement;
+    const labelsLayer = root.querySelector('[data-gg-labels]') as HTMLElement;
+    const captionEl = root.querySelector('[data-gg-caption]') as HTMLElement;
+    const stepEl = root.querySelector('[data-gg-step]') as HTMLElement;
+    const dotsEl = root.querySelector('[data-gg-dots]') as HTMLElement;
+    const prevBtn = root.querySelector('[data-gg-prev]') as HTMLButtonElement;
+    const nextBtn = root.querySelector('[data-gg-next]') as HTMLButtonElement;
+    const playBtn = root.querySelector('[data-gg-play]') as HTMLButtonElement;
+    const resetBtn = root.querySelector('[data-gg-reset]') as HTMLButtonElement;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const nodeEls = new Map<string, HTMLElement>();
+    const labelEls = new Map<string, HTMLElement>();
+    const seenEdges = new Set<string>();
+    let current = 0;
+    let timer: number | null = null;
+
+    const pos = (c: GGCommit) => ({
+      x: PAD_X + c.x * COL_W,
+      y: PAD_Y + c.lane * LANE_H,
+    });
+
+    function sizeCanvas(state: GGState) {
+      const maxX = state.commits.reduce((m, c) => Math.max(m, c.x), 0);
+      const maxLane = state.commits.reduce((m, c) => Math.max(m, c.lane), 0);
+      const w = PAD_X * 2 + maxX * COL_W + 130;
+      const h = PAD_Y * 2 + maxLane * LANE_H + 30;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.setAttribute('width', String(w));
+      svg.setAttribute('height', String(h));
+    }
+
+    function edgePath(a: GGCommit, b: GGCommit) {
+      const p = pos(a);
+      const q = pos(b);
+      if (p.y === q.y) return `M ${p.x} ${p.y} L ${q.x} ${q.y}`;
+      const dx = (q.x - p.x) * 0.5;
+      return `M ${p.x} ${p.y} C ${p.x + dx} ${p.y}, ${q.x - dx} ${q.y}, ${q.x} ${q.y}`;
+    }
+
+    function render(index: number, animate: boolean) {
+      const state = states[index];
+      sizeCanvas(state);
+
+      const byId = new Map(state.commits.map((c) => [c.id, c]));
+
+      /* Aristas */
+      svg.innerHTML = '';
+      for (const c of state.commits) {
+        for (const pid of c.parents) {
+          const p = byId.get(pid);
+          if (!p) continue;
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', edgePath(p, c));
+          path.setAttribute('class', 'gg-edge');
+          path.style.stroke = laneColor(c.lane);
+          const key = pid + '>' + c.id;
+          if (animate && !seenEdges.has(key)) {
+            path.classList.add('is-new');
+            const len = 200;
+            path.style.strokeDasharray = String(len);
+            path.style.strokeDashoffset = String(len);
+            requestAnimationFrame(() => {
+              path.style.strokeDashoffset = '0';
+            });
+          }
+          seenEdges.add(key);
+          svg.appendChild(path);
+        }
+      }
+
+      /* Nodos (persistentes para poder animar) */
+      const presentIds = new Set(state.commits.map((c) => c.id));
+      for (const c of state.commits) {
+        let el = nodeEls.get(c.id);
+        const p = pos(c);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'gg-node is-new' + (c.merge ? ' is-merge' : '');
+          el.innerHTML = `<span class="gg-dot"></span><span class="gg-msg"></span>`;
+          nodesLayer.appendChild(el);
+          nodeEls.set(c.id, el);
+        }
+        el.style.setProperty('--gg-color', laneColor(c.lane));
+        (el.querySelector('.gg-msg') as HTMLElement).textContent = c.msg;
+        el.style.transform = `translate(${p.x - 8}px, ${p.y - 8}px)`;
+      }
+      for (const [id, el] of nodeEls) {
+        if (!presentIds.has(id)) {
+          el.remove();
+          nodeEls.delete(id);
+        }
+      }
+
+      /* Etiquetas de rama */
+      const tipGroups = new Map<string, string[]>();
+      for (const [name, tip] of Object.entries(state.branches)) {
+        if (!tip) continue;
+        if (!tipGroups.has(tip)) tipGroups.set(tip, []);
+        tipGroups.get(tip)!.push(name);
+      }
+      const presentLabels = new Set(Object.keys(state.branches).filter((n) => state.branches[n]));
+      for (const [tip, names] of tipGroups) {
+        const c = byId.get(tip);
+        if (!c) continue;
+        const p = pos(c);
+        names.sort();
+        names.forEach((name, i) => {
+          let el = labelEls.get(name);
+          if (!el) {
+            el = document.createElement('div');
+            el.className = 'gg-label is-new';
+            el.innerHTML = `<span class="gg-head-tag">HEAD</span><span class="gg-name"></span>`;
+            labelsLayer.appendChild(el);
+            labelEls.set(name, el);
+          }
+          el.style.setProperty('--gg-color', laneColor(state.lanes[name] ?? c.lane));
+          el.classList.toggle('is-head', name === state.head);
+          (el.querySelector('.gg-name') as HTMLElement).textContent = name;
+          el.style.transform = `translate(${p.x + 14}px, ${p.y - 13 + i * 24}px)`;
+        });
+      }
+      for (const [name, el] of labelEls) {
+        if (!presentLabels.has(name)) {
+          el.classList.add('is-gone');
+          const target = el;
+          setTimeout(() => target.remove(), 300);
+          labelEls.delete(name);
+        }
+      }
+
+      captionEl.textContent = state.caption;
+      stepEl.textContent = `${index} / ${steps.length}`;
+      dotsEl.querySelectorAll('button').forEach((b, i) =>
+        (b as HTMLElement).classList.toggle('active', i === index),
+      );
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === states.length - 1;
+    }
+
+    function go(index: number, animate = true) {
+      current = Math.max(0, Math.min(states.length - 1, index));
+      render(current, animate);
+    }
+
+    function stop() {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+      playBtn.textContent = '▶ Reproducir';
+      playBtn.classList.remove('is-playing');
+    }
+
+    function play() {
+      if (timer !== null) {
+        stop();
+        return;
+      }
+      if (current >= states.length - 1) go(0, true);
+      playBtn.textContent = '⏸ Pausar';
+      playBtn.classList.add('is-playing');
+      timer = window.setInterval(() => {
+        if (current >= states.length - 1) {
+          stop();
+          return;
+        }
+        go(current + 1, true);
+      }, 2300);
+    }
+
+    /* puntos de paso */
+    for (let i = 0; i < states.length; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gg-dot-step';
+      b.setAttribute('aria-label', `Ir al paso ${i}`);
+      b.addEventListener('click', () => {
+        stop();
+        go(i, true);
+      });
+      dotsEl.appendChild(b);
+    }
+
+    prevBtn.addEventListener('click', () => {
+      stop();
+      go(current - 1, true);
+    });
+    nextBtn.addEventListener('click', () => {
+      stop();
+      go(current + 1, true);
+    });
+    playBtn.addEventListener('click', play);
+    resetBtn.addEventListener('click', () => {
+      stop();
+      go(0, true);
+    });
+
+    go(0, false);
+  }
+
+  document.querySelectorAll('[data-gitgraph]').forEach((el) => initGitGraph(el as HTMLElement));
+</script>

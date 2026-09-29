@@ -2036,3 +2036,238 @@ img {
   color: var(--text-faint);
   font-style: italic;
 }
+
+/* ---------- Grafo de ramas animado (GitGraph) ---------- */
+.gitgraph {
+  margin: 28px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.gg-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+.gg-ico {
+  font-size: 20px;
+}
+.gg-head-text {
+  min-width: 0;
+}
+.gg-title {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+.gg-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.gg-sub code {
+  font-size: 11px;
+}
+.gg-step {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.gg-stage {
+  overflow-x: auto;
+  padding: 18px 8px;
+  background: radial-gradient(circle at 1px 1px, var(--border-muted) 1px, transparent 0) 0 0 / 22px
+    22px;
+}
+.gg-canvas {
+  position: relative;
+  margin: 0 auto;
+}
+.gg-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+.gg-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.gg-edge {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.7;
+  transition: stroke-dashoffset 0.6s ease;
+}
+.gg-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gg-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gg-color, var(--accent));
+  border: 2px solid var(--bg-subtle);
+  box-shadow: 0 0 0 2px var(--gg-color, var(--accent));
+}
+.gg-node.is-merge .gg-dot {
+  border-radius: 4px;
+}
+.gg-msg {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  padding: 0 3px;
+}
+.gg-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gg-label .gg-name {
+  color: var(--gg-color, var(--text));
+  font-weight: 700;
+}
+.gg-label.is-head {
+  border-color: var(--gg-color, var(--accent));
+  box-shadow: 0 0 0 1px var(--gg-color, var(--accent));
+}
+.gg-head-tag {
+  display: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bg);
+  background: var(--gg-color, var(--accent));
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.gg-label.is-head .gg-head-tag {
+  display: inline-block;
+}
+.gg-node.is-new .gg-dot {
+  animation: gg-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.gg-label.is-new {
+  animation: gg-fade 0.4s ease both;
+}
+.gg-label.is-gone {
+  animation: gg-gone 0.3s ease forwards;
+}
+@keyframes gg-pop {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+@keyframes gg-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes gg-gone {
+  to {
+    opacity: 0;
+  }
+}
+.gg-caption {
+  margin: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+  min-height: 52px;
+}
+.gg-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 18px 16px;
+}
+.gg-btn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.gg-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.gg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.gg-btn-play {
+  background: var(--accent-emphasis);
+  border-color: var(--accent-emphasis);
+  color: #fff;
+}
+.gg-btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.gg-dots {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.gg-dot-step {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+.gg-dot-step.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+@media (max-width: 560px) {
+  .gg-sub {
+    display: none;
+  }
+  .gg-dots {
+    display: none;
+  }
+}

@@ -6,11 +6,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 
 /* El sitio puede desplegarse en un subdirectorio (GitHub Pages), asi que los
-   enlaces internos llevan el prefijo `base`. Lo leemos de astro.config.mjs
-   para no duplicarlo y lo quitamos antes de resolver contra dist/. */
+   enlaces internos llevan el prefijo `base`. Lo tomamos de BASE_PATH (lo define
+   el workflow de Pages) o de astro.config.mjs, y lo quitamos antes de resolver
+   contra dist/. */
 const configRaw = readFileSync(join(root, 'astro.config.mjs'), 'utf8');
 const baseMatch = configRaw.match(/\bbase:\s*'([^']*)'/);
-const base = (baseMatch?.[1] ?? '/').replace(/\/+$/, '');
+const base = (process.env.BASE_PATH || baseMatch?.[1] || '/').replace(/\/+$/, '');
 
 if (!existsSync(dist)) {
   console.error('\u2717 No existe la carpeta dist/. Ejecuta `npm run build` primero.');
